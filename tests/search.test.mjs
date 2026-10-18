@@ -40,3 +40,9 @@ test("посилання на пошук аукціонів", () => {
   assert.equal(auctionSearchLinks({ make: "BMW", model: "330i", auction: "all" }).length, 2);
   assert.equal(auctionSearchLinks({ make: "BMW", model: "", auction: "IAAI" })[0].href, "https://www.iaai.com/Search?Keyword=BMW");
 });
+
+test("відповідь постачальника з ключем result читається так само, як data", () => {
+  const wrapped = { pagination: { total: 1 }, result: raw.data };
+  assert.equal(splitResults(wrapped, NOW).active.length, splitResults(raw, NOW).active.length);
+  assert.ok(splitResults(wrapped, NOW).active.length > 0);
+});

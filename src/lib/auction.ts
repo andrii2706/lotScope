@@ -187,7 +187,7 @@ export interface MappedLot {
 }
 
 export function mapProviderRecord(raw: unknown): MappedLot | null {
-  const root = isRec(raw) && isRec(raw.data) ? raw.data : isRec(raw) && Array.isArray(raw.data) ? raw.data[0] : raw;
+  const root = isRec(raw) && isRec(raw.data) ? raw.data : isRec(raw) && Array.isArray(raw.data) ? raw.data[0] : isRec(raw) && isRec(raw.result) ? raw.result : isRec(raw) && Array.isArray(raw.result) ? raw.result[0] : raw;
   if (!isRec(root)) return null;
   const h = newestHistory(root);
   const both = (keys: string[]) => pick(h, keys) ?? pick(root, keys);
@@ -235,7 +235,7 @@ export function mapProviderRecord(raw: unknown): MappedLot | null {
 }
 
 export function salePricesFrom(raw: unknown): number[] {
-  const list = isRec(raw) && Array.isArray(raw.data) ? raw.data : Array.isArray(raw) ? raw : [];
+  const list = isRec(raw) && Array.isArray(raw.result) ? raw.result : isRec(raw) && Array.isArray(raw.data) ? raw.data : Array.isArray(raw) ? raw : [];
   const prices: number[] = [];
   for (const item of list) {
     if (!isRec(item)) continue;

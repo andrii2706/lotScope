@@ -1,5 +1,6 @@
 import { ProviderError, auctionConfigured, callProvider } from "@/lib/provider";
-import { type SearchFilters, type SearchResponse, auctionSearchLinks, filterLots, splitResults } from "@/lib/search";
+import { priceStats, salePricesFrom } from "@/lib/auction";
+import { type SearchFilters, type SearchResponse, activeFrom, auctionSearchLinks, filterLots, listFrom, sampleKeys } from "@/lib/search";
 import { requireUser } from "@/lib/auth";
 import { fail } from "@/lib/server";
 
@@ -58,18 +59,33 @@ export async function POST(request: Request) {
   if (filters.model) params.model = filters.model;
   if (filters.yearFrom) params.year_from = filters.yearFrom;
   if (filters.yearTo) params.year_to = filters.yearTo;
-  if (filters.auction !== "all") params.auction_name = filters.auction.toLowerCase();
+  if (filters.auction !== "all") params.auction_name = filters.auction.toUpperCase();
+
+  const comparableParams: Record<string, string | number> = { make: filters.make, page: 1, per_page: PER_PAGE };
+  if (filters.model) comparableParams.model = filters.model.split(/\s+/)[0];
+  if (filters.yearFrom) comparableParams.year_from = filters.yearFrom;
+  if (filters.yearTo) comparableParams.year_to = filters.yearTo;
 
   try {
-    const raw = await callProvider("/api/v2/get-cars", params);
-    const { active, comparables } = splitResults(raw);
-    const lots = filterLots(active, filters);
+    const [raw, sold] = await Promise.all([
+      callProvider("/api/v2/get-active-lots", params),
+      callProvider("/api/v2/get-cars", comparableParams).catch(() => null),
+    ]);
+    const received = listFrom(raw).length;
+    const lots = filterLots(activeFrom(raw), filters);
+    if (received > 0 && lots.length === 0) console.error("Provider: lots received but filtered out or unmapped; keys:", sampleKeys(raw));
+    const comparables = priceStats(salePricesFrom(sold));
     return Response.json({
       ...base,
       lots: lots.slice(0, MAX_RESULTS).map((lot) => ({ ...lot, vin: "" })),
       total: lots.length,
       comparables,
-      message: lots.length === 0 ? "Активних лотів за цими фільтрами не знайдено. Спробуйте розширити роки чи прибрати фільтри." : undefined,
+      message:
+        lots.length === 0
+          ? received > 0
+            ? "Лоти знайдено, але жоден не пройшов ваші фільтри. Послабте фільтри (пробіг, ставка, пошкодження)."
+            : "Активних лотів за цими фільтрами не знайдено. Спробуйте розширити роки чи прибрати фільтри."
+          : undefined,
     } satisfies SearchResponse);
   } catch (error) {
     if (error instanceof ProviderError) return Response.json({ ...base, message: error.message });

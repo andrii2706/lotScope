@@ -14,13 +14,15 @@ export async function callProvider(
   params: Record<string, string | number | string[]>,
 ): Promise<unknown> {
   const url = new URL(`${BASE}${path}`);
+  const form = new URLSearchParams();
   for (const [k, v] of Object.entries(params)) {
-    if (Array.isArray(v)) v.forEach((item) => url.searchParams.append(k, item));
-    else url.searchParams.set(k, String(v));
+    if (Array.isArray(v)) v.forEach((item) => form.append(`${k}[]`, item));
+    else form.set(k, String(v));
   }
   const res = await fetch(url, {
     method: "POST",
-    headers: { authorization: `Bearer ${apiKey()}`, accept: "application/json" },
+    headers: { authorization: `Bearer ${apiKey()}`, accept: "application/json", "content-type": "application/x-www-form-urlencoded" },
+    body: form,
     signal: AbortSignal.timeout(API_TIMEOUT),
     cache: "no-store",
   });

@@ -83,9 +83,19 @@ export function lotUrl(auction: AuctionName, lotNumber: string): string {
     : `https://www.iaai.com/Search?Keyword=${enc}`;
 }
 
-export function mapActiveLot(raw: unknown): ActiveLot | null {
-  if (!isRec(raw)) return null;
-  const h = newestHistory(raw);
+function flatten(r: Rec): Rec {
+  const out: Rec = { ...r };
+  for (const [key, value] of Object.entries(r)) {
+    if (key === "history" || !isRec(value)) continue;
+    for (const [k, v] of Object.entries(value)) if (!(k in out) && !isRec(v)) out[k] = v;
+  }
+  return out;
+}
+
+export function mapActiveLot(input: unknown): ActiveLot | null {
+  if (!isRec(input)) return null;
+  const raw = flatten(input);
+  const h = flatten(newestHistory(input));
   const both = (keys: string[]) => pick(h, keys) ?? pick(raw, keys);
   const auctionRaw = text(both(["auction", "auction_name", "site"])).toLowerCase();
   const auction: AuctionName = auctionRaw.includes("copart") ? "Copart" : auctionRaw.includes("iaai") ? "IAAI" : "Other";
@@ -142,8 +152,27 @@ export function filterLots(lots: ActiveLot[], f: SearchFilters): ActiveLot[] {
   });
 }
 
+export function listFrom(raw: unknown): unknown[] {
+  return isRec(raw) && Array.isArray(raw.result) ? raw.result : isRec(raw) && Array.isArray(raw.data) ? raw.data : Array.isArray(raw) ? raw : [];
+}
+
+export function sampleKeys(raw: unknown): string {
+  const first = listFrom(raw)[0];
+  return isRec(first) ? Object.keys(first).slice(0, 40).join(", ") : "";
+}
+
+export function activeFrom(raw: unknown): ActiveLot[] {
+  const out: ActiveLot[] = [];
+  for (const item of listFrom(raw)) {
+    if (isSold(item)) continue;
+    const lot = mapActiveLot(item);
+    if (lot) out.push(lot);
+  }
+  return out.sort((a, b) => (Date.parse(a.auctionDate) || Infinity) - (Date.parse(b.auctionDate) || Infinity));
+}
+
 export function splitResults(raw: unknown, now = Date.now()): { active: ActiveLot[]; comparables: PriceStats | null } {
-  const list = isRec(raw) && Array.isArray(raw.data) ? raw.data : Array.isArray(raw) ? raw : [];
+  const list = isRec(raw) && Array.isArray(raw.result) ? raw.result : isRec(raw) && Array.isArray(raw.data) ? raw.data : Array.isArray(raw) ? raw : [];
   const active: ActiveLot[] = [];
   for (const item of list) {
     if (isSold(item)) continue;
