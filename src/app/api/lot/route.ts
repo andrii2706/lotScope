@@ -42,8 +42,17 @@ async function downloadPhoto(raw: string): Promise<string | null> {
   const url = safePhotoUrl(raw);
   if (!url) return null;
   try {
-    const res = await fetch(url, { signal: AbortSignal.timeout(PHOTO_TIMEOUT), cache: "no-store" });
-    const type = (res.headers.get("content-type") || "").split(";")[0].trim().toLowerCase();
+    const res = await fetch(url, {
+      signal: AbortSignal.timeout(PHOTO_TIMEOUT),
+      cache: "no-store",
+      headers: { "user-agent": "Mozilla/5.0 (compatible; LotScope/1.0)", accept: "image/*" },
+    });
+    let type = (res.headers.get("content-type") || "").split(";")[0].trim().toLowerCase();
+    if (!type.startsWith("image/")) {
+      const ext = /\.(jpe?g|png|webp)(\?|$)/i.exec(url.pathname + url.search)?.[1]?.toLowerCase();
+      if (ext) type = ext === "png" ? "image/png" : ext === "webp" ? "image/webp" : "image/jpeg";
+    }
+    if (type === "image/jpg") type = "image/jpeg";
     if (!res.ok || !["image/jpeg", "image/png", "image/webp"].includes(type)) return null;
     const declared = Number(res.headers.get("content-length") || 0);
     if (declared > MAX_PHOTO_BYTES) return null;

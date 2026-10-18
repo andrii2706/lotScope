@@ -180,6 +180,43 @@ function runStatus(v: unknown): LotInput["runStatus"] | undefined {
   return undefined;
 }
 
+const IMAGE_KEY = /img|image|photo|pic|thumb|media/i;
+const IMAGE_EXT = /\.(jpe?g|png|webp)(\?|$)/i;
+const SMALL = /thumb|small|mini|preview|_t\.|_s\./i;
+const LARGE = /hd|full|large|big|orig|high/i;
+
+function urlsIn(value: string): string[] {
+  const t = value.trim();
+  if (!t) return [];
+  if (t.startsWith("[") || t.startsWith("{")) {
+    try {
+      return collectImages(JSON.parse(t), "image", 0);
+    } catch {}
+  }
+  return t
+    .split(/[\s,;|]+/)
+    .map((u) => (u.startsWith("//") ? `https:${u}` : u.replace(/^http:\/\//i, "https://")))
+    .filter((u) => /^https:\/\//i.test(u));
+}
+
+function collectImages(value: unknown, key: string, depth: number): string[] {
+  if (depth > 5 || value === null || value === undefined) return [];
+  if (typeof value === "string") {
+    const urls = urlsIn(value);
+    return IMAGE_KEY.test(key) ? urls : urls.filter((u) => IMAGE_EXT.test(u));
+  }
+  if (Array.isArray(value)) return value.flatMap((v) => collectImages(v, key, depth + 1));
+  if (isRec(value)) return Object.entries(value).flatMap(([k, v]) => collectImages(v, IMAGE_KEY.test(k) ? k : key, depth + 1));
+  return [];
+}
+
+export function extractPhotos(record: unknown): string[] {
+  const all = [...new Set(collectImages(record, "", 0))];
+  const large = all.filter((u) => !SMALL.test(u));
+  const list = large.length ? large : all;
+  return list.sort((a, b) => Number(LARGE.test(b)) - Number(LARGE.test(a)));
+}
+
 export interface MappedLot {
   lot: Partial<LotInput>;
   photoUrls: string[];
@@ -216,10 +253,7 @@ export function mapProviderRecord(raw: unknown): MappedLot | null {
   set("airbags", airbags(both(["airbags", "airbag"])));
   set("runStatus", runStatus(both(["run_status", "condition", "highlights", "start_code"])));
 
-  const photosRaw = both(["photos", "images", "image_urls"]);
-  const photoUrls = (Array.isArray(photosRaw) ? photosRaw : [])
-    .map((p) => (isRec(p) ? asText(pick(p, ["url", "src", "full", "large"])) : asText(p)))
-    .filter((u) => /^https:\/\//i.test(u));
+  const photoUrls = extractPhotos(root);
 
   const salePrice = Math.round(asNumber(pick(h, ["final_bid", "sale_price"])));
   const lastSale = Object.keys(h).length

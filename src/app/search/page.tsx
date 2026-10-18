@@ -256,7 +256,7 @@ export default function SearchPage() {
                     <li key={`${lot.auction}-${lot.lotNumber}-${i}`} className="grid gap-4 border-b border-line p-4 last:border-b-0 sm:grid-cols-[8.5rem_minmax(0,1fr)] sm:p-5 lg:grid-cols-[8.5rem_minmax(0,2fr)_minmax(0,1.1fr)_minmax(0,1fr)_11rem] lg:items-center">
                       <div className="relative aspect-[4/3] w-full overflow-hidden rounded-xl border border-line bg-panel2 sm:w-34">
                         {lot.photo ? (
-                          <img src={lot.photo} alt="" loading="lazy" className="size-full object-cover" />
+                          <img src={lot.photo} alt="" loading="lazy" referrerPolicy="no-referrer" className="size-full object-cover" />
                         ) : (
                           <span className="grid size-full place-items-center text-faint">
                             <CarFront className="size-8" />

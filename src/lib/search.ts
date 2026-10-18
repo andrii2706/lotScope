@@ -1,4 +1,4 @@
-import { type AuctionName, type PriceStats, newestHistory, priceStats, salePricesFrom } from "./auction.ts";
+import { type AuctionName, type PriceStats, extractPhotos, newestHistory, priceStats, salePricesFrom } from "./auction.ts";
 
 export interface SearchFilters {
   make: string;
@@ -104,9 +104,7 @@ export function mapActiveLot(input: unknown): ActiveLot | null {
   const model = text(pick(raw, ["model"]));
   const year = Math.round(num(pick(raw, ["year", "model_year"])));
   if (!make && !lotNumber) return null;
-  const photos = both(["photos", "images", "image_urls"]);
-  const first = Array.isArray(photos) ? photos[0] : undefined;
-  const photo = isRec(first) ? text(pick(first, ["url", "src", "thumb", "full"])) : text(first);
+  const photo = extractPhotos(input)[0] ?? "";
   return {
     auction,
     lotNumber,
@@ -124,7 +122,7 @@ export function mapActiveLot(input: unknown): ActiveLot | null {
     auctionDate: text(both(["auction_date", "sale_date", "date"])),
     currentBidUsd: Math.round(num(both(["current_bid", "bid"]))),
     buyNowUsd: Math.round(num(both(["buy_now", "buy_it_now"]))),
-    photo: /^https:\/\//i.test(photo) ? photo : "",
+    photo,
     url: lotUrl(auction, lotNumber),
   };
 }

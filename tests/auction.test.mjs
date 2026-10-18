@@ -64,7 +64,7 @@ test("мапить запис постачальника", () => {
   assert.equal(m.lot.engineCc, 2000);
   assert.equal(m.lot.fuel, "petrol");
   assert.equal(m.lot.primaryDamage, "Left Rear");
-  assert.deepEqual(m.photoUrls, ["https://cdn.example.com/a.jpg", "https://cdn.example.com/c.jpg"]);
+  assert.deepEqual(m.photoUrls, ["https://cdn.example.com/a.jpg", "https://insecure/b.jpg", "https://cdn.example.com/c.jpg"]);
   assert.equal(m.lastSale.priceUsd, 9100);
   assert.equal(mapProviderRecord(null), null);
 });
@@ -77,4 +77,17 @@ test("ціни продажів беруться лише з проданих л
     { sale_price: 0 },
   ] });
   assert.deepEqual(prices, [8000, 9000]);
+});
+
+test("знаходить фото під довільними ключами", async () => {
+  const { extractPhotos } = await import("../src/lib/auction.ts");
+  const urls = extractPhotos({
+    vin: "X",
+    link_img_hd: ["https://img.example.com/1_hd.jpg", "https://img.example.com/2_hd.jpg"],
+    link_img_small: "https://img.example.com/1_thumb.jpg",
+    nested: { gallery: "//img.example.com/3.jpg, //img.example.com/4.jpg" },
+  });
+  assert.ok(urls.includes("https://img.example.com/1_hd.jpg"));
+  assert.ok(urls.includes("https://img.example.com/3.jpg"));
+  assert.ok(!urls.some((u) => u.includes("thumb")));
 });
