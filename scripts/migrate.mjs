@@ -10,7 +10,12 @@ if (!process.env.DATABASE_URL) {
   console.error("DATABASE_URL не задано. Додайте його в .env.local.");
   process.exit(1);
 }
-const client = new pg.Client({ connectionString: process.env.DATABASE_URL });
+const url = process.env.DATABASE_URL;
+const host = new URL(url).hostname;
+const mode = (process.env.DATABASE_SSL || "").toLowerCase();
+const off = mode === "off" || mode === "false" || (!mode && ["localhost", "127.0.0.1", "::1", "db", "postgres"].includes(host));
+const clean = url.replace(/([?&])sslmode=[^&]*&?/, "$1").replace(/[?&]$/, "");
+const client = new pg.Client(off ? { connectionString: clean } : { connectionString: clean, ssl: mode === "verify" ? true : { rejectUnauthorized: false } });
 await client.connect();
 await client.query(fs.readFileSync(path.join(root, "db", "schema.sql"), "utf8"));
 await client.end();

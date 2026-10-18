@@ -143,14 +143,16 @@ export async function POST(request: Request) {
   const keys = lotKeys(lot.lotNumber, lot.vin);
   const title = `${lot.year} ${lot.make} ${lot.model}`;
   let charge: "free" | "paid" | "none" = "none";
-  if (await takeFreeAnalysis(user.companyId, user.id, keys, title)) {
+  if (user.isAdmin) {
+    charge = "none";
+  } else if (await takeFreeAnalysis(user.companyId, user.id, keys, title)) {
     charge = "free";
   } else if (await consumeCredit(user.companyId, user.id, "analysis", title)) {
     charge = "paid";
   } else {
     return fail(402, "Аналізи за вашим тарифом закінчились. Поповніть їх на сторінці «Оплата».");
   }
-  await audit(user, "analyze", title, charge === "free" ? "безкоштовно (лот відкрито)" : "1 аналіз");
+  await audit(user, "analyze", title, charge === "free" ? "безкоштовно (лот відкрито)" : charge === "none" ? "без списання" : "1 аналіз");
   const refund = async () => {
     const was = charge;
     charge = "none";

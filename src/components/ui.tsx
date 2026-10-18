@@ -247,10 +247,10 @@ export function Button({
 }) {
   const styles = {
     primary:
-      "bg-accent text-accent-ink hover:brightness-110 active:brightness-95 disabled:bg-panel2 disabled:text-faint disabled:hover:brightness-100 cursor-pointer",
-    secondary: "border border-line2 bg-surface text-ink hover:bg-panel2 cursor-pointer",
-    ghost: "text-muted hover:bg-ink/5 cursor-pointer hover:text-ink",
-    danger: "text-bad hover:bg-bad-bg cursor-pointer",
+      "bg-accent text-accent-ink hover:brightness-110 active:brightness-95 disabled:bg-panel2 disabled:text-faint disabled:hover:brightness-100",
+    secondary: "border border-line2 bg-surface text-ink hover:bg-panel2",
+    ghost: "text-muted hover:bg-ink/5 hover:text-ink",
+    danger: "text-bad hover:bg-bad-bg",
   }[variant];
   const sizes = { md: "min-h-11 px-4 text-sm", lg: "min-h-13 px-6 text-base" }[size];
   return (

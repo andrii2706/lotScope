@@ -1,4 +1,5 @@
 import pg from "pg";
+import { poolConfig } from "./dbssl";
 
 const globalForPool = globalThis as unknown as { lotscopePool?: pg.Pool };
 
@@ -7,7 +8,7 @@ export const dbConfigured = () => Boolean(process.env.DATABASE_URL);
 export function pool(): pg.Pool {
   if (!globalForPool.lotscopePool) {
     globalForPool.lotscopePool = new pg.Pool({
-      connectionString: process.env.DATABASE_URL,
+      ...poolConfig(process.env.DATABASE_URL),
       max: 5,
       connectionTimeoutMillis: 5000,
       query_timeout: 15000,

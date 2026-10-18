@@ -96,13 +96,13 @@ export async function currentUser(): Promise<CurrentUser | null> {
     `select u.id, u.email, u.name, u.role, u.company_id, c.name as company_name, c.plan, c.credits, c.period_end, c.recurring_active,
             c.kind, c.suspended, c.suspended_reason, s.expires_at
        from sessions s join users u on u.id = s.user_id join companies c on c.id = u.company_id
-      where s.token_hash = $1 and s.expires_at > now() and u.active`,
-    [sha256(token)],
+      where s.token_hash = $1 and s.expires_at > now() and s.created_at + make_interval(secs => $2) > now() and u.active`,
+    [sha256(token), sessionHours() * 3600],
   );
   const r = rows[0];
   if (!r) return null;
   const isAdmin = isAdminEmail(r.email);
-  const subscribed = Boolean(r.period_end && r.period_end.getTime() > Date.now() && PAID_SUBSCRIPTIONS.includes(r.plan));
+  const subscribed = isAdmin || Boolean(r.period_end && r.period_end.getTime() > Date.now() && PAID_SUBSCRIPTIONS.includes(r.plan));
   return {
     id: r.id,
     email: r.email,

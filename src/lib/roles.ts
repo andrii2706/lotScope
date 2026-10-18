@@ -17,7 +17,7 @@ export type Permission =
 export const ROLES: Role[] = ["superadmin", "admin", "manager", "expert", "user"];
 
 const MATRIX: Record<Role, Permission[]> = {
-  superadmin: ["console"],
+  superadmin: ["console", "search", "analyze", "reports", "reportsAll", "save", "pdf", "expert", "settings"],
   admin: ["reports", "reportsAll", "team", "activity", "billing", "settings"],
   manager: ["search", "analyze", "reports", "save", "pdf"],
   expert: ["reports", "reportsAll", "expert"],

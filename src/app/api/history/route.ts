@@ -65,7 +65,7 @@ export async function POST(request: Request) {
   const base: VinHistoryResponse = { configured: auction || nmvtis, history: null, links: links(vin) };
   if (!base.configured) return Response.json(base);
   const keys = lotKeys("", vin);
-  if (!(await isUnlocked(user.companyId, keys))) {
+  if (!user.isAdmin && !(await isUnlocked(user.companyId, keys))) {
     if (body.unlock !== true) {
       return Response.json({ ...base, locked: true, credits: user.credits, message: "Історія за VIN доступна за тарифом." });
     }

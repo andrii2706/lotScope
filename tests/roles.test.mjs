@@ -5,9 +5,9 @@ import { PLANS, plansFor } from "../src/lib/plans.ts";
 
 const sub = (role, subscribed = true) => ({ role, subscribed });
 
-test("супер адмін має лише консоль", () => {
-  assert.ok(can(sub("superadmin"), "console"));
-  for (const p of ["search", "analyze", "save", "pdf", "reports", "team"]) assert.equal(can(sub("superadmin"), p), false, p);
+test("супер адмін має консоль і всю робочу логіку, але не команду компанії", () => {
+  for (const p of ["console", "search", "analyze", "reports", "reportsAll", "save", "pdf", "expert", "settings"]) assert.ok(can(sub("superadmin"), p), p);
+  assert.equal(can(sub("superadmin"), "team"), false);
 });
 
 test("адмін компанії: команда, активність, звіти компанії, без пошуку й аналізу", () => {

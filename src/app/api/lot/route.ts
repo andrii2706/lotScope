@@ -96,7 +96,7 @@ export async function POST(request: Request) {
   if (!base.configured) return Response.json(base);
 
   const keys = lotKeys(query.kind === "lot" ? query.value : "", query.kind === "vin" ? query.value : "");
-  const unlocked = await isUnlocked(user.companyId, keys);
+  const unlocked = user.isAdmin || (await isUnlocked(user.companyId, keys));
   if (!unlocked) {
     if (body.unlock !== true) {
       return Response.json({ ...base, locked: true, credits: user.credits, message: "Деталі лота наживо доступні за тарифом." });

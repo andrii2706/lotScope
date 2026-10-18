@@ -323,7 +323,9 @@ and data URLs for unsaved ones. A report is visible to its author, and to roles 
   by `expert` only.
 - Public signup (`/api/auth/register`, Google without invite) creates a `personal` company with one
   seat and role `user`. Teams are created only by the superadmin (`companies.kind = 'team'`).
-- Sessions last `SESSION_HOURS` (default 8): DB `expires_at`, cookie expiry, a client timer in
+- The superadmin has every permission except `team`, is always `subscribed`, and is never charged (analysis, lot and VIN unlocks are skipped when `user.isAdmin`).
+- DB SSL: `dbssl.ts` strips `sslmode` from `DATABASE_URL` and uses `ssl: {rejectUnauthorized:false}` for non-local hosts (`DATABASE_SSL=off|verify` overrides); `migrate.mjs` does the same.
+- Sessions last `SESSION_HOURS` (default 8, absolute from login, never extended; `currentUser` also checks `created_at + SESSION_HOURS`): DB `expires_at`, cookie expiry, a client timer in
   `AppShell` and `api()` redirect to `/login?error=session`.
 - Suspension: `companies.suspended` makes `requireUser` answer 403 `suspended`, deletes sessions, and
   `AppShell` shows a block screen; people can still log in to see it.
