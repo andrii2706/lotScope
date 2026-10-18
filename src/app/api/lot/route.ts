@@ -64,7 +64,7 @@ async function comparablesFor(make?: string, model?: string, year?: number): Pro
     year_from: year - 1,
     year_to: year + 1,
     page: 1,
-    per_page: 100,
+    per_page: 50,
   }).catch(() => null);
   const stats = priceStats(salePricesFrom(raw));
   if (!stats) return null;

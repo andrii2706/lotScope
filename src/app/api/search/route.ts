@@ -5,7 +5,7 @@ import { fail } from "@/lib/server";
 
 export const maxDuration = 60;
 
-const PER_PAGE = 100;
+const PER_PAGE = 50;
 const MAX_RESULTS = 60;
 
 const text = (v: unknown, max: number) => (typeof v === "string" ? v.trim().slice(0, max) : "");
