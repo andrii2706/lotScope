@@ -163,6 +163,7 @@ src/lib/roles.ts              ролі та матриця прав
 1. Створіть Postgres: Neon або Supabase (також через Vercel Marketplace). Для `DATABASE_URL` беріть pooled-рядок підключення.
 2. Один раз виконайте міграцію зі свого комп'ютера: `DATABASE_URL="<рядок>" npm run db:migrate`.
 3. Завантажте проєкт на GitHub і імпортуйте його у Vercel (Framework: Next.js, налаштування за замовчуванням).
-4. У Settings → Environment Variables додайте змінні з `.env.example`: `DATABASE_URL`, `APP_URL` (адреса сайту, наприклад `https://lotscope.vercel.app`), `ANTHROPIC_API_KEY`, `ADMIN_EMAILS`, `LIQPAY_*`, `GOOGLE_*` та інші потрібні. Після зміни змінних зробіть Redeploy.
+4. Схема бази створюється автоматично під час кожного білду на Vercel (`vercel.json` запускає `npm run vercel-build`, тобто міграцію, а потім `next build`). Змінна `DATABASE_URL` має бути задана для Production і Preview до першого деплою.
+5. У Settings → Environment Variables додайте змінні з `.env.example`: `DATABASE_URL`, `APP_URL` (адреса сайту, наприклад `https://lotscope.vercel.app`), `ANTHROPIC_API_KEY`, `ADMIN_EMAILS`, `LIQPAY_*`, `GOOGLE_*` та інші потрібні. Після зміни змінних зробіть Redeploy.
 5. У Google Cloud додайте Redirect URI `APP_URL/api/auth/google/callback`. У кабінеті LiqPay сервер сам передає `server_url`, окремо вказувати його не треба.
 6. Ліміти Vercel: тіло запиту до функції до 4,5 МБ (тому фото стискаються, а великий PDF Carfax краще замінити скриншотами), тривалість аналізу до 120 с потребує увімкненого Fluid Compute або плану Pro.

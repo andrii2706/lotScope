@@ -6,6 +6,11 @@ import nextEnv from "@next/env";
 
 const root = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
 nextEnv.loadEnvConfig(root);
+const optional = process.argv.includes("--optional");
+if (!process.env.DATABASE_URL && optional) {
+  console.log("DATABASE_URL не задано: міграцію пропущено.");
+  process.exit(0);
+}
 if (!process.env.DATABASE_URL) {
   console.error("DATABASE_URL не задано. Додайте його в .env.local.");
   process.exit(1);
