@@ -1,26 +1,306 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --accent: #c8f542;
+  --accent-ink: #0a0c0f;
+  --accent-text: #c8f542;
+
+  --paper: #0a0c0f;
+  --surface: #12151a;
+  --panel-2: #181c22;
+  --line: #232830;
+  --line-2: #2e343d;
+  --ink: #f2f4f7;
+  --on-ink: #0a0c0f;
+  --muted: #9aa3b2;
+  --faint: #6b7483;
+  --scrim: rgba(10, 12, 15, 0.66);
+
+  --good: #5fdd8c;
+  --good-bg: rgba(95, 221, 140, 0.13);
+  --warn: #f5b942;
+  --warn-bg: rgba(245, 185, 66, 0.13);
+  --bad: #ff7a70;
+  --bad-bg: rgba(255, 122, 112, 0.13);
+
+  --series-1: #3987e5;
+  --series-2: #d95926;
+  --series-3: #199e70;
+  --series-4: #c98500;
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-accent: var(--accent);
+  --color-accent-ink: var(--accent-ink);
+  --color-accent-text: var(--accent-text);
+  --color-paper: var(--paper);
+  --color-surface: var(--surface);
+  --color-panel2: var(--panel-2);
+  --color-ink: var(--ink);
+  --color-on-ink: var(--on-ink);
+  --color-muted: var(--muted);
+  --color-faint: var(--faint);
+  --color-line: var(--line);
+  --color-line2: var(--line-2);
+  --color-scrim: var(--scrim);
+  --color-good: var(--good);
+  --color-good-bg: var(--good-bg);
+  --color-warn: var(--warn);
+  --color-warn-bg: var(--warn-bg);
+  --color-bad: var(--bad);
+  --color-bad-bg: var(--bad-bg);
+  --font-sans: "Manrope Variable", ui-sans-serif, system-ui, "Segoe UI", Roboto, sans-serif;
+  --font-display: "Unbounded Variable", "Manrope Variable", ui-sans-serif, system-ui, sans-serif;
+  --shadow-card: 0 1px 0 rgba(255, 255, 255, 0.02) inset;
+  --shadow-pop: 0 24px 60px -20px rgba(0, 0, 0, 0.8);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+html {
+  color-scheme: dark;
+  scroll-behavior: smooth;
+  scroll-padding-top: 5.5rem;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: "Manrope Variable", ui-sans-serif, system-ui, "Segoe UI", Roboto, sans-serif;
+  font-feature-settings: "tnum" 1;
+}
+
+h1,
+h2,
+h3 {
+  text-wrap: balance;
+}
+
+.app-bg {
+  background:
+    radial-gradient(60rem 26rem at 12% -14%, color-mix(in srgb, var(--accent) 9%, transparent), transparent 70%),
+    var(--paper);
+  background-repeat: no-repeat;
+}
+
+.card {
+  border: 1px solid var(--line);
+  border-radius: 1.25rem;
+  background: var(--surface);
+  box-shadow: var(--shadow-card);
+}
+
+.control {
+  width: 100%;
+  min-height: 2.75rem;
+  border: 1px solid var(--line-2);
+  border-radius: 0.75rem;
+  background: var(--paper);
+  padding: 0.55rem 0.85rem;
+  font-size: 0.9375rem;
+  font-weight: 500;
+  line-height: 1.4;
+  color: var(--ink);
+  transition:
+    border-color 140ms,
+    box-shadow 140ms;
+}
+select.control {
+  appearance: none;
+  -webkit-appearance: none;
+  cursor: pointer;
+  padding-right: 2.5rem;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%239aa3b2' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.8rem center;
+  background-size: 1.1rem;
+}
+:root[data-theme="light"] select.control {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23566070' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+}
+select.control option {
+  background: var(--surface);
+  color: var(--ink);
+}
+.control::placeholder {
+  color: var(--faint);
+  font-weight: 400;
+}
+.control:hover {
+  border-color: #414955;
+}
+.control:focus-visible {
+  outline: none;
+  border-color: var(--accent-text);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent-text) 18%, transparent);
+}
+.control[type="number"] {
+  appearance: textfield;
+  -moz-appearance: textfield;
+}
+.control[type="number"]::-webkit-outer-spin-button,
+.control[type="number"]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+:where(a, button, [role="button"], [role="radio"], summary, [tabindex]):focus-visible {
+  outline: 2px solid var(--accent-text);
+  outline-offset: 2px;
+}
+
+.print-only {
+  display: none;
+}
+
+:root[data-theme="light"] {
+  --paper: #f3f4f7;
+  --surface: #ffffff;
+  --panel-2: #eef0f4;
+  --line: #e1e4ea;
+  --line-2: #cdd2dc;
+  --ink: #0e1324;
+  --on-ink: #ffffff;
+  --muted: #586176;
+  --faint: #7d869a;
+  --good: #0f7a43;
+  --good-bg: #e3f6ea;
+  --warn: #8f5300;
+  --warn-bg: #fdf1d8;
+  --bad: #c0271f;
+  --bad-bg: #fdeae8;
+  --series-1: #2a78d6;
+  --series-2: #eb6834;
+  --series-3: #1baf7a;
+  --series-4: #eda100;
+  color-scheme: light;
+}
+:root[data-theme="light"] .card {
+  box-shadow: 0 1px 2px rgba(14, 19, 36, 0.05), 0 10px 28px -16px rgba(14, 19, 36, 0.16);
+}
+:root[data-theme="light"] .control {
+  background: var(--surface);
+}
+:root[data-theme="light"] .control:hover {
+  border-color: #aeb5c3;
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.rise {
+  animation: rise 420ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+
+@keyframes scan {
+  0% {
+    transform: translateY(-10%);
+  }
+  100% {
+    transform: translateY(110%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  * {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+@page {
+  size: A4;
+  margin: 12mm;
+}
+
+@media print {
+  :root {
+    --paper: #f4f5f8;
+    --surface: #ffffff;
+    --panel-2: #eef0f4;
+    --line: #dfe3ea;
+    --line-2: #cdd2dc;
+    --ink: #0e1324;
+    --on-ink: #ffffff;
+    --muted: #5a6379;
+    --faint: #8d95a8;
+    --good: #0f7a43;
+    --good-bg: #e3f6ea;
+    --warn: #9a5a00;
+    --warn-bg: #fdf1d8;
+    --bad: #c0271f;
+    --bad-bg: #fdeae8;
+    --series-1: #2a78d6;
+    --series-2: #eb6834;
+    --series-3: #1baf7a;
+    --series-4: #eda100;
+  }
+  html {
+    color-scheme: light;
+  }
+  body,
+  .app-bg {
+    background: #fff !important;
+  }
+  .no-print {
+    display: none !important;
+  }
+  .print-locked .print-only {
+    display: none !important;
+  }
+  .print-locked body::before,
+  body.print-locked::before {
+    content: "Друк і PDF доступні лише з активною підпискою.";
+    display: block;
+    padding: 2rem;
+    font-size: 1.1rem;
+  }
+  .print-only {
+    display: block !important;
+  }
+  .avoid-break {
+    break-inside: avoid;
+  }
+  h2 {
+    break-after: avoid;
+  }
+  .sheet td,
+  .sheet th {
+    padding-top: 0.3rem !important;
+    padding-bottom: 0.3rem !important;
+  }
+  .rise {
+    animation: none !important;
+  }
+  * {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+}
+
+button:not(:disabled),
+[role="button"]:not([aria-disabled="true"]),
+[role="radio"],
+[role="tab"],
+summary,
+label[for],
+select,
+input[type="checkbox"],
+input[type="radio"],
+input[type="file"],
+input[type="range"],
+a[href] {
+  cursor: pointer;
+}
+button:disabled,
+[aria-disabled="true"] {
+  cursor: not-allowed;
 }
