@@ -3,40 +3,13 @@
 import { Download, GraduationCap, Plus, Trash2, Wrench } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
-import { Button, Field, PageHeader } from "@/components/ui";
-import { lotTitle } from "@/lib/labels";
-import { LESSON_TAGS, MAX_PROMPT_LESSONS } from "@/lib/lessons";
-import { removeLesson, saveLesson, setLessonActive, useLessons } from "@/lib/lessonsClient";
-import { useHydrated, useReports, useSettings } from "@/lib/store";
-import type { Report } from "@/lib/types";
-
-function stats(reports: Report[]) {
-  const reviewed = reports.filter((r) => r.expert);
-  const parts = reviewed.flatMap((r) => r.expert!.parts.filter((p) => p.agree !== null));
-  const agreed = parts.filter((p) => p.agree).length;
-  const ranges = reviewed.filter((r) => r.expert!.repairMaxUsd > 0 && r.analysis.repairMaxUsd > 0);
-  const deviation = ranges.length
-    ? ranges.reduce((sum, r) => {
-        const ai = (r.analysis.repairMinUsd + r.analysis.repairMaxUsd) / 2;
-        const ex = (r.expert!.repairMinUsd + r.expert!.repairMaxUsd) / 2;
-        return sum + (ai - ex) / ex;
-      }, 0) / ranges.length
-    : null;
-  const verdicts = reviewed.filter((r) => r.expert!.verdict);
-  const verdictMatch = verdicts.length
-    ? verdicts.filter((r) => r.expert!.verdict === r.analysis.verdict).length / verdicts.length
-    : null;
-  return {
-    reviewed: reviewed.length,
-    agreement: parts.length ? agreed / parts.length : null,
-    deviation,
-    verdictMatch,
-    pending: reports.filter((r) => !r.expert && !r.demo),
-  };
-}
-
-const pct = (v: number | null, signed = false) =>
-  v === null ? "—" : `${signed && v > 0 ? "+" : ""}${Math.round(v * 100)}%`;
+import { Button, Field, PageHeader, Select } from "@/components/ui";
+import { lotTitle } from "@/lib/shared/labels";
+import { LESSON_TAGS, MAX_PROMPT_LESSONS } from "@/lib/shared/lessons";
+import { removeLesson, saveLesson, setLessonActive, useLessons } from "@/lib/client/lessons";
+import { useHydrated, useReports, useSettings } from "@/lib/client/store";
+import { userMessage } from "@/lib/shared/errors";
+import { expertStats, pct } from "@/lib/shared/expertStats";
 
 export default function ExpertPage() {
   const hydrated = useHydrated();
@@ -51,7 +24,7 @@ export default function ExpertPage() {
 
   if (!hydrated) return <p className="text-sm text-muted">Завантажую…</p>;
 
-  const s = stats(reports);
+  const s = expertStats(reports);
   const active = lessons.filter((l) => l.active).length;
   const visible = (tag === "Усі" ? lessons : lessons.filter((l) => l.tag === tag)).toSorted((a, b) =>
     b.createdAt.localeCompare(a.createdAt),
@@ -66,7 +39,7 @@ export default function ExpertPage() {
       setRule("");
       setAdding(false);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Не вдалося зберегти урок.");
+      setError(userMessage(e, "Не вдалося зберегти урок."));
     }
   }
 
@@ -128,7 +101,7 @@ export default function ExpertPage() {
       <section className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         {tiles.map((t) => (
           <div key={t.label} className="card p-4 sm:p-5">
-            <p className="text-xs font-bold uppercase tracking-wider text-muted">{t.label}</p>
+            <p className="text-[13px] font-medium text-muted">{t.label}</p>
             <p className="mt-1 font-display text-2xl font-semibold sm:text-3xl">{t.value}</p>
           </div>
         ))}
@@ -148,11 +121,7 @@ export default function ExpertPage() {
           <div className="mt-3 flex flex-wrap items-center gap-3">
             <label className="flex items-center gap-2 text-sm font-bold">
               <span className="text-muted">Тема</span>
-              <select className="control !min-h-9 !w-auto !py-1" value={newTag} onChange={(e) => setNewTag(e.target.value)}>
-                {LESSON_TAGS.map((t) => (
-                  <option key={t}>{t}</option>
-                ))}
-              </select>
+              <Select size="sm" className="w-52" value={newTag} onChange={setNewTag} options={LESSON_TAGS.map((t) => ({ value: t, label: t }))} />
             </label>
             <Button variant="ghost" className="ml-auto" onClick={() => setAdding(false)}>
               Скасувати
@@ -180,7 +149,7 @@ export default function ExpertPage() {
         </div>
         {visible.length === 0 ? (
           <div className="p-8 text-center">
-            <span className="mx-auto mb-3 grid size-12 place-items-center rounded-2xl bg-panel2 text-muted">
+            <span className="mx-auto mb-3 grid size-12 place-items-center rounded-xl bg-panel2 text-muted">
               <Wrench className="size-6" />
             </span>
             <p className="font-bold">Уроків ще немає</p>
@@ -211,8 +180,8 @@ export default function ExpertPage() {
                   <button
                     type="button"
                     aria-pressed={l.active}
-                    onClick={() => setLessonActive(l.id, !l.active).catch((e: Error) => setError(e.message))}
-                    className={`h-9 rounded-full border px-3.5 text-xs font-extrabold ${
+                    onClick={() => setLessonActive(l.id, !l.active).catch((e: unknown) => setError(userMessage(e)))}
+                    className={`h-9 rounded-full border px-3.5 text-xs font-semibold ${
                       l.active ? "border-good bg-good-bg text-good" : "border-line2 text-muted"
                     }`}
                   >
@@ -221,7 +190,7 @@ export default function ExpertPage() {
                   <button
                     type="button"
                     aria-label="Видалити урок"
-                    onClick={() => removeLesson({ id: l.id }).catch((e: Error) => setError(e.message))}
+                    onClick={() => removeLesson({ id: l.id }).catch((e: unknown) => setError(userMessage(e)))}
                     className="grid size-9 place-items-center rounded-full text-muted hover:bg-bad-bg hover:text-bad"
                   >
                     <Trash2 className="size-4" />
@@ -235,7 +204,7 @@ export default function ExpertPage() {
 
       {s.pending.length > 0 && (
         <section className="mt-5">
-          <h2 className="mb-3 text-base font-extrabold">Звіти без перевірки</h2>
+          <h2 className="mb-3 text-base font-semibold">Звіти без перевірки</h2>
           <ul className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
             {s.pending.slice(0, 9).map((r) => (
               <li key={r.id}>

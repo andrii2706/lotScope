@@ -1,9 +1,10 @@
-import { audit } from "@/lib/audit";
-import { requireUser } from "@/lib/auth";
-import { query } from "@/lib/db";
-import { text } from "@/lib/server";
+import { audit } from "@/lib/server/audit";
+import { requireUser } from "@/lib/server/auth";
+import { query } from "@/lib/server/db";
+import { text } from "@/lib/server/http";
+import { route } from "@/lib/server/route";
 
-export async function POST(_request: Request, { params }: { params: Promise<{ id: string }> }) {
+async function handlePOST(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   const user = await requireUser("pdf");
   if (user instanceof Response) return user;
   const { id } = await params;
@@ -11,3 +12,5 @@ export async function POST(_request: Request, { params }: { params: Promise<{ id
   if (rows[0]) await audit(user, "report_pdf", rows[0].title || id);
   return Response.json({ ok: true });
 }
+
+export const POST = route(handlePOST);

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { compareVins, vinCheckDigitValid, vinFlags } from "../src/lib/vin.ts";
+import { compareVins, vinCheckDigitValid, vinFlags } from "../src/lib/shared/vin.ts";
 
 const VALID = "1M8GDM9AXKP042788";
 

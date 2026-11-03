@@ -1,17 +1,17 @@
 import Anthropic from "@anthropic-ai/sdk";
-import { MAX_PHOTOS } from "@/lib/defaults";
-import { DEMO_ANALYSIS } from "@/lib/demo";
-import { normalizeAnalysis } from "@/lib/normalize";
-import { ANALYSIS_SCHEMA, SYSTEM_PROMPT, buildLotText, lessonsBlock } from "@/lib/prompt";
-import type { AnalyzeRequest, AnalyzeResponse, HistoryFile, LotInput } from "@/lib/types";
-import { requireUser } from "@/lib/auth";
-import { audit } from "@/lib/audit";
-import { consumeCredit, refundCredit } from "@/lib/billing";
-import { query } from "@/lib/db";
-import { fail } from "@/lib/server";
-import { lotKeys, restoreFreeAnalysis, takeFreeAnalysis } from "@/lib/unlocks";
-import { vinFlags } from "@/lib/vin";
-import { historyToText, mileageIssues, previousAuctionFlags, sanitizeHistory } from "@/lib/vinhistory";
+import { isAuctionName } from "@/lib/shared/auctions";
+import { MAX_PHOTOS } from "@/lib/shared/defaults";
+import { DEMO_ANALYSIS } from "@/lib/server/demo";
+import { normalizeAnalysis } from "@/lib/server/normalize";
+import { ANALYSIS_SCHEMA, SYSTEM_PROMPT, buildLotText, lessonsBlock } from "@/lib/server/prompt";
+import { requireUser } from "@/lib/server/auth";
+import { audit } from "@/lib/server/audit";
+import { query } from "@/lib/server/db";
+import { fail } from "@/lib/server/http";
+import { vinFlags } from "@/lib/shared/vin";
+import { historyToText, mileageIssues, previousAuctionFlags, sanitizeHistory } from "@/lib/shared/vinhistory";
+import { route } from "@/lib/server/route";
+import type { AnalyzeRequest, AnalyzeResponse, HistoryFile, LotInput } from "@/types/report";
 
 export const maxDuration = 120;
 
@@ -25,7 +25,7 @@ const MAX_HISTORY_FILES = 4;
 const MAX_PDF_CHARS = 14_000_000;
 
 
-export async function GET() {
+async function handleGET() {
   return Response.json({
     configured: Boolean(process.env.ANTHROPIC_API_KEY),
     model: MODEL,
@@ -52,9 +52,7 @@ function sanitizeLot(raw: Partial<LotInput> | undefined): LotInput | null {
       : "petrol",
     engineCc: Math.max(0, number(raw.engineCc)),
     batteryKwh: Math.max(0, number(raw.batteryKwh)),
-    auction: (["IAAI", "Copart", "Other"] as const).includes(raw.auction as never)
-      ? (raw.auction as LotInput["auction"])
-      : "Other",
+    auction: isAuctionName(raw.auction) ? raw.auction : "Other",
     lotNumber: text(raw.lotNumber, 40),
     vin: text(raw.vin, 20),
     primaryDamage: text(raw.primaryDamage, 80),
@@ -74,7 +72,7 @@ function sanitizeLot(raw: Partial<LotInput> | undefined): LotInput | null {
   };
 }
 
-export async function POST(request: Request) {
+async function handlePOST(request: Request) {
   const user = await requireUser("analyze");
   if (user instanceof Response) return user;
 
@@ -140,25 +138,8 @@ export async function POST(request: Request) {
     return Response.json(response);
   }
 
-  const keys = lotKeys(lot.lotNumber, lot.vin);
   const title = `${lot.year} ${lot.make} ${lot.model}`;
-  let charge: "free" | "paid" | "none" = "none";
-  if (user.isAdmin) {
-    charge = "none";
-  } else if (await takeFreeAnalysis(user.companyId, user.id, keys, title)) {
-    charge = "free";
-  } else if (await consumeCredit(user.companyId, user.id, "analysis", title)) {
-    charge = "paid";
-  } else {
-    return fail(402, "Аналізи за вашим тарифом закінчились. Поповніть їх на сторінці «Оплата».");
-  }
-  await audit(user, "analyze", title, charge === "free" ? "безкоштовно (лот відкрито)" : charge === "none" ? "без списання" : "1 аналіз");
-  const refund = async () => {
-    const was = charge;
-    charge = "none";
-    if (was === "paid") await refundCredit(user.companyId, user.id, "analysis").catch((e) => console.error(e));
-    if (was === "free") await restoreFreeAnalysis(user.companyId, user.id, keys).catch((e) => console.error(e));
-  };
+  await audit(user, "analyze", title);
 
   const lessons = (
     await query<{ rule: string }>(
@@ -225,12 +206,11 @@ export async function POST(request: Request) {
       },
     });
 
-    if (message.stop_reason !== "end_turn") await refund();
     if (message.stop_reason === "refusal") {
-      return fail(422, "Модель відмовилась аналізувати ці фото. Перевірте, що на них авто.");
+      return fail(422, "Не вдалося проаналізувати ці фото. Перевірте, що на них видно авто.", "Anthropic stop_reason=refusal");
     }
     if (message.stop_reason === "max_tokens") {
-      return fail(502, "Відповідь моделі обірвалась. Спробуйте з меншою кількістю фото.");
+      return fail(502, "Аналіз не встиг завершитися. Спробуйте з меншою кількістю фото.", "Anthropic stop_reason=max_tokens");
     }
 
     const jsonText = message.content
@@ -242,8 +222,7 @@ export async function POST(request: Request) {
     try {
       parsed = JSON.parse(jsonText);
     } catch {
-      await refund();
-      return fail(502, "Модель повернула відповідь у неочікуваному форматі. Спробуйте ще раз.");
+      return fail(502, "Аналіз не вдався. Спробуйте ще раз.", `Anthropic response is not JSON: ${jsonText.slice(0, 300)}`);
     }
 
     const analysis = normalizeAnalysis(parsed);
@@ -267,15 +246,15 @@ export async function POST(request: Request) {
     };
     return Response.json(response);
   } catch (error) {
-    await refund();
     if (error instanceof Anthropic.APIError) {
-      console.error("Anthropic API error", error.status, error.message);
-      if (error.status === 401) return fail(502, "Ключ API недійсний. Перевірте ANTHROPIC_API_KEY.");
-      if (error.status === 429) return fail(429, "Забагато запитів. Спробуйте за хвилину.");
-      if (error.status === 413) return fail(413, "Фото завеликі. Спробуйте менше фото.");
-      return fail(502, "Сервіс аналізу тимчасово недоступний. Спробуйте ще раз.");
+      const detail = `Anthropic API ${error.status}: ${error.message}${error.status === 401 ? " (перевірте ANTHROPIC_API_KEY)" : ""}`;
+      if (error.status === 429) return fail(429, "Забагато запитів. Спробуйте за хвилину.", detail);
+      if (error.status === 413) return fail(413, "Фото завеликі. Спробуйте з меншою кількістю фото.", detail);
+      return fail(503, "Аналіз тимчасово недоступний. Спробуйте за кілька хвилин.", detail);
     }
-    console.error(error);
-    return fail(500, "Внутрішня помилка сервера.");
+    throw error;
   }
 }
+
+export const GET = route(handleGET);
+export const POST = route(handlePOST);

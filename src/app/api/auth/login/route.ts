@@ -1,15 +1,16 @@
-import { audit } from "@/lib/audit";
-import { createSession, normalizeEmail } from "@/lib/auth";
-import { dbConfigured, dbDown, query } from "@/lib/db";
-import { verifyPassword } from "@/lib/password";
-import { fail, readJson } from "@/lib/server";
+import { audit } from "@/lib/server/audit";
+import { createSession, normalizeEmail } from "@/lib/server/auth";
+import { dbConfigured, dbMissing, query } from "@/lib/server/db";
+import { verifyPassword } from "@/lib/server/password";
+import { fail, readJson } from "@/lib/server/http";
+import { route } from "@/lib/server/route";
 
 const attempts = new Map<string, { count: number; until: number }>();
 const WINDOW = 15 * 60_000;
 const LIMIT = 8;
 
 async function handlePost(request: Request) {
-  if (!dbConfigured()) return fail(503, "База даних не налаштована: додайте DATABASE_URL у .env.local.");
+  if (!dbConfigured()) return dbMissing();
   const body = await readJson<Record<string, unknown>>(request);
   const email = normalizeEmail(body?.email);
   const password = typeof body?.password === "string" ? body.password : "";
@@ -32,6 +33,8 @@ async function handlePost(request: Request) {
   return Response.json({ ok: true });
 }
 
-export async function POST(request: Request) {
-  return handlePost(request).catch(dbDown);
+async function handlePOST(request: Request) {
+  return handlePost(request);
 }
+
+export const POST = route(handlePOST);

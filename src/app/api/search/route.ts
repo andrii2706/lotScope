@@ -1,8 +1,11 @@
-import { ProviderError, auctionConfigured, callProvider } from "@/lib/provider";
-import { priceStats, salePricesFrom } from "@/lib/auction";
-import { type SearchFilters, type SearchResponse, activeFrom, auctionSearchLinks, filterLots, listFrom, paginationOf, sampleKeys } from "@/lib/search";
-import { requireUser } from "@/lib/auth";
-import { fail } from "@/lib/server";
+import { ProviderError, auctionConfigured, callProvider } from "@/lib/server/provider";
+import { priceStats, salePricesFrom } from "@/lib/shared/auction";
+import { activeFrom, auctionSearchLinks, filterLots, listFrom, paginationOf, sampleKeys } from "@/lib/shared/search";
+import { AUCTIONS, SEARCHABLE, regionOf } from "@/lib/shared/auctions";
+import { requireUser } from "@/lib/server/auth";
+import { fail } from "@/lib/server/http";
+import { route } from "@/lib/server/route";
+import type { SearchFilters, SearchResponse } from "@/types/auction";
 
 export const maxDuration = 60;
 
@@ -25,7 +28,7 @@ function sanitize(raw: Partial<SearchFilters> | undefined): SearchFilters {
     yearTo,
     maxMiles: int(raw?.maxMiles, 0, 1_000_000),
     maxBidUsd: int(raw?.maxBidUsd, 0, 1_000_000),
-    auction: raw?.auction === "Copart" || raw?.auction === "IAAI" ? raw.auction : "all",
+    auction: SEARCHABLE.find((a) => a === raw?.auction) ?? "all",
     damages: Array.isArray(raw?.damages) ? raw.damages.map((d) => text(d, 40)).filter(Boolean).slice(0, 10) : [],
     excludeFlood: raw?.excludeFlood !== false,
     excludeDeployed: raw?.excludeDeployed === true,
@@ -33,7 +36,7 @@ function sanitize(raw: Partial<SearchFilters> | undefined): SearchFilters {
   };
 }
 
-export async function POST(request: Request) {
+async function handlePOST(request: Request) {
   const user = await requireUser("search");
   if (user instanceof Response) return user;
 
@@ -56,15 +59,17 @@ export async function POST(request: Request) {
   if (!base.configured) return Response.json(base);
 
   const page = int(body.page, 1, 200) || 1;
-  const params: Record<string, string | number> = { make: filters.make, page, per_page: PER_PAGE };
+  const params: Record<string, string | number | string[]> = { make: filters.make, page, per_page: PER_PAGE };
   if (filters.yearFrom) params.year_from = filters.yearFrom;
   if (filters.yearTo) params.year_to = filters.yearTo;
-  if (filters.auction !== "all") params.auction_name = filters.auction.toUpperCase();
+  if (filters.auction !== "all") params.auction_names = [AUCTIONS[filters.auction].provider];
 
   const comparableParams: Record<string, string | number> = { make: filters.make, page: 1, per_page: PER_PAGE };
   if (filters.model) comparableParams.model = filters.model.split(/\s+/)[0];
   if (filters.yearFrom) comparableParams.year_from = filters.yearFrom;
   if (filters.yearTo) comparableParams.year_to = filters.yearTo;
+  const region = regionOf(filters.auction === "all" ? "Copart" : filters.auction);
+  const comparableAuctions = SEARCHABLE.filter((a) => regionOf(a) === region);
 
   try {
     let loose = body.loose === true || !filters.model;
@@ -81,7 +86,7 @@ export async function POST(request: Request) {
     const pagination = paginationOf(raw);
     const lots = filterLots(activeFrom(raw), filters, looseModel);
     if (received > 0 && lots.length === 0) console.error("Provider: lots received but filtered out or unmapped; keys:", sampleKeys(raw));
-    const comparables = priceStats(salePricesFrom(sold));
+    const comparables = priceStats(salePricesFrom(sold, comparableAuctions));
     return Response.json({
       ...base,
       lots: lots.slice(0, MAX_RESULTS).map((lot) => ({ ...lot, vin: "" })),
@@ -106,3 +111,5 @@ export async function POST(request: Request) {
     return Response.json({ ...base, message: "Не вдалося отримати лоти. Спробуйте ще раз." });
   }
 }
+
+export const POST = route(handlePOST);

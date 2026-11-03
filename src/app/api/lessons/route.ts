@@ -1,8 +1,9 @@
-import { newId, requireUser } from "@/lib/auth";
-import { query } from "@/lib/db";
-import { LESSON_TAGS } from "@/lib/lessons";
-import { fail, readJson, text } from "@/lib/server";
-import type { Lesson } from "@/lib/types";
+import { newId, requireUser } from "@/lib/server/auth";
+import { query } from "@/lib/server/db";
+import { LESSON_TAGS } from "@/lib/shared/lessons";
+import { fail, readJson, text } from "@/lib/server/http";
+import { route } from "@/lib/server/route";
+import type { Lesson } from "@/types/report";
 
 interface Row {
   id: string;
@@ -26,14 +27,14 @@ const toLesson = (r: Row): Lesson => ({
   createdAt: r.created_at.toISOString(),
 });
 
-export async function GET() {
+async function handleGET() {
   const user = await requireUser();
   if (user instanceof Response) return user;
   const rows = await query<Row>("select * from lessons where company_id = $1 order by created_at desc", [user.companyId]);
   return Response.json({ lessons: rows.map(toLesson) });
 }
 
-export async function POST(request: Request) {
+async function handlePOST(request: Request) {
   const user = await requireUser("expert");
   if (user instanceof Response) return user;
   const body = await readJson<Partial<Lesson>>(request);
@@ -55,7 +56,7 @@ export async function POST(request: Request) {
   return Response.json({ lesson: toLesson(rows[0]) });
 }
 
-export async function PATCH(request: Request) {
+async function handlePATCH(request: Request) {
   const user = await requireUser("expert");
   if (user instanceof Response) return user;
   const body = await readJson<{ id?: string; active?: boolean }>(request);
@@ -63,7 +64,7 @@ export async function PATCH(request: Request) {
   return Response.json({ ok: true });
 }
 
-export async function DELETE(request: Request) {
+async function handleDELETE(request: Request) {
   const user = await requireUser("expert");
   if (user instanceof Response) return user;
   const body = await readJson<{ id?: string; reportId?: string }>(request);
@@ -71,3 +72,8 @@ export async function DELETE(request: Request) {
   await query("delete from lessons where id = $1 and company_id = $2", [id, user.companyId]);
   return Response.json({ ok: true });
 }
+
+export const GET = route(handleGET);
+export const POST = route(handlePOST);
+export const PATCH = route(handlePATCH);
+export const DELETE = route(handleDELETE);

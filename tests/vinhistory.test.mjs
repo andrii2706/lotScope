@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { historyToText, mapAuctionHistory, mapVinAudit, mileageIssues, previousAuctionFlags, sanitizeHistory } from "../src/lib/vinhistory.ts";
+import { historyToText, mapAuctionHistory, mapVinAudit, mileageIssues, previousAuctionFlags, sanitizeHistory } from "../src/lib/shared/vinhistory.ts";
 
 const auctionRaw = { data: { vin: "WBA8Z9C50JG827636", history: [
   { auction: "iaai", lot_number: "46058418", sale_date: "2026-05-01", sale_status: "On sale", odometer: 23600, primary_damage: "Left Rear" },

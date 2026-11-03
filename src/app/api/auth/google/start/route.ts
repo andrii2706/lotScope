@@ -1,7 +1,9 @@
 import { cookies, headers } from "next/headers";
-import { OAUTH_COOKIE, challengeFor, googleConfig, randomUrlToken, redirectUri, safeNext, type OAuthContext } from "@/lib/google";
+import { OAUTH_COOKIE, challengeFor, googleConfig, randomUrlToken, redirectUri, safeNext } from "@/lib/server/google";
+import { route } from "@/lib/server/route";
+import type { OAuthContext } from "@/types/auth";
 
-export async function GET(request: Request) {
+async function handleGET(request: Request) {
   const cfg = googleConfig();
   const url = new URL(request.url);
   if (!cfg) return Response.redirect(new URL("/login?error=google_off", url.origin), 303);
@@ -33,3 +35,5 @@ export async function GET(request: Request) {
   }).toString();
   return new Response(null, { status: 303, headers: { location: auth.toString() } });
 }
+
+export const GET = route(handleGET);

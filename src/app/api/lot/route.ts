@@ -1,26 +1,19 @@
-import {
-  type Comparables,
-  type LotLookupResponse,
-  mapProviderRecord,
-  parseLotQuery,
-  priceStats,
-  salePricesFrom,
-  searchLinks,
-} from "@/lib/auction";
-import { MAX_PHOTOS } from "@/lib/defaults";
-import { PROVIDER_SOURCE as SOURCE, ProviderError, auctionConfigured, callProvider } from "@/lib/provider";
-import { audit } from "@/lib/audit";
-import { requireUser } from "@/lib/auth";
-import { hasCredits } from "@/lib/billing";
-import { fail } from "@/lib/server";
-import { isUnlocked, lotKeys, unlockLot } from "@/lib/unlocks";
+import { mapProviderRecord, parseLotQuery, priceStats, salePricesFrom, searchLinks } from "@/lib/shared/auction";
+import { SEARCHABLE, regionOf } from "@/lib/shared/auctions";
+import { MAX_PHOTOS } from "@/lib/shared/defaults";
+import { PROVIDER_SOURCE as SOURCE, ProviderError, auctionConfigured, callProvider } from "@/lib/server/provider";
+import { audit } from "@/lib/server/audit";
+import { requireUser } from "@/lib/server/auth";
+import { fail } from "@/lib/server/http";
+import { route } from "@/lib/server/route";
+import type { AuctionName, Comparables, LotLookupResponse } from "@/types/auction";
 
 export const maxDuration = 60;
 
 const MAX_PHOTO_BYTES = 6_000_000;
 const PHOTO_TIMEOUT = 10_000;
 
-export async function GET() {
+async function handleGET() {
   return Response.json({ configured: auctionConfigured() });
 }
 
@@ -64,7 +57,7 @@ async function downloadPhoto(raw: string): Promise<string | null> {
   }
 }
 
-async function comparablesFor(make?: string, model?: string, year?: number): Promise<Comparables | null> {
+async function comparablesFor(make?: string, model?: string, year?: number, auction?: AuctionName): Promise<Comparables | null> {
   if (!make || !model || !year) return null;
   const baseModel = model.split(/\s+/)[0];
   const raw = await callProvider("/api/v2/get-cars", {
@@ -75,16 +68,17 @@ async function comparablesFor(make?: string, model?: string, year?: number): Pro
     page: 1,
     per_page: 50,
   }).catch(() => null);
-  const stats = priceStats(salePricesFrom(raw));
+  const region = regionOf(auction);
+  const stats = priceStats(salePricesFrom(raw, SEARCHABLE.filter((a) => regionOf(a) === region)));
   if (!stats) return null;
   return { source: SOURCE, query: `${make} ${baseModel}, ${year - 1}–${year + 1}`, stats };
 }
 
-export async function POST(request: Request) {
+async function handlePOST(request: Request) {
   const user = await requireUser("search");
   if (user instanceof Response) return user;
 
-  let body: { query?: unknown; unlock?: unknown };
+  let body: { query?: unknown };
   try {
     body = await request.json();
   } catch {
@@ -104,17 +98,6 @@ export async function POST(request: Request) {
   };
   if (!base.configured) return Response.json(base);
 
-  const keys = lotKeys(query.kind === "lot" ? query.value : "", query.kind === "vin" ? query.value : "");
-  const unlocked = user.isAdmin || (await isUnlocked(user.companyId, keys));
-  if (!unlocked) {
-    if (body.unlock !== true) {
-      return Response.json({ ...base, locked: true, credits: user.credits, message: "Деталі лота наживо доступні за тарифом." });
-    }
-    if (!(await hasCredits(user.companyId))) {
-      return fail(402, "Аналізи за вашим тарифом закінчились. Поповніть їх на сторінці «Оплата».");
-    }
-  }
-
   try {
     const raw =
       query.kind === "vin"
@@ -122,21 +105,15 @@ export async function POST(request: Request) {
         : await callProvider("/api/v1/get-car-lot", { lot_number: query.value });
     const mapped = mapProviderRecord(raw);
     if (!mapped || (!mapped.lot.make && !mapped.lot.vin)) {
-      return Response.json({ ...base, message: "Постачальник даних не знайшов цей лот. Скористайтесь посиланнями нижче." });
+      return Response.json({ ...base, message: "Цей лот не знайдено. Скористайтесь посиланнями нижче." });
     }
 
-    if (!unlocked) {
-      const all = lotKeys(mapped.lot.lotNumber || (query.kind === "lot" ? query.value : ""), mapped.lot.vin || (query.kind === "vin" ? query.value : ""));
-      const label = [mapped.lot.year, mapped.lot.make, mapped.lot.model].filter(Boolean).join(" ") || query.value;
-      if (!(await unlockLot(user.companyId, user.id, all, label))) {
-        return fail(402, "Аналізи за вашим тарифом закінчились. Поповніть їх на сторінці «Оплата».");
-      }
-      await audit(user, "unlock", label, "лот");
-    }
+    const label = [mapped.lot.year, mapped.lot.make, mapped.lot.model].filter(Boolean).join(" ") || query.value;
+    await audit(user, "unlock", label, "лот");
 
     const [photos, comparables] = await Promise.all([
       Promise.all(mapped.photoUrls.slice(0, MAX_PHOTOS).map(downloadPhoto)),
-      comparablesFor(mapped.lot.make, mapped.lot.model, mapped.lot.year),
+      comparablesFor(mapped.lot.make, mapped.lot.model, mapped.lot.year, mapped.lot.auction ?? query.auction),
     ]);
 
     const vinQuery = mapped.lot.vin ? parseLotQuery(mapped.lot.vin) : query;
@@ -156,3 +133,6 @@ export async function POST(request: Request) {
     return Response.json({ ...base, message: "Не вдалося отримати дані лота. Скористайтесь посиланнями нижче." });
   }
 }
+
+export const GET = route(handleGET);
+export const POST = route(handlePOST);

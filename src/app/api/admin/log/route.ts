@@ -1,9 +1,10 @@
-import { query } from "@/lib/db";
-import { requireSuperadmin } from "@/lib/superadmin";
+import { query } from "@/lib/server/db";
+import { requireSuperadmin } from "@/lib/server/superadmin";
+import { route } from "@/lib/server/route";
 
 const PAGE = 100;
 
-export async function GET(request: Request) {
+async function handleGET(request: Request) {
   const admin = await requireSuperadmin();
   if (admin instanceof Response) return admin;
   const url = new URL(request.url);
@@ -19,3 +20,5 @@ export async function GET(request: Request) {
   );
   return Response.json({ entries: rows, next: rows.length === PAGE ? offset + PAGE : null });
 }
+
+export const GET = route(handleGET);

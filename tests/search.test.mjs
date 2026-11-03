@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { auctionSearchLinks, filterLots, mapActiveLot, splitResults } from "../src/lib/search.ts";
+import { auctionSearchLinks, filterLots, mapActiveLot, splitResults } from "../src/lib/shared/search.ts";
 
 const NOW = Date.parse("2026-10-12T12:00:00Z");
 const raw = {
@@ -48,9 +48,27 @@ test("відповідь постачальника з ключем result чи�
 });
 
 test("модель фільтрується локально і розуміє серії", async () => {
-  const { modelMatches, paginationOf } = await import("../src/lib/search.ts");
+  const { modelMatches, paginationOf } = await import("../src/lib/shared/search.ts");
   assert.ok(modelMatches("330I XDRIVE", "330"));
   assert.ok(modelMatches("330i", "3 Series"));
   assert.ok(!modelMatches("X5", "3 Series"));
   assert.deepEqual(paginationOf({ pagination: { current_page: 2, total_pages: 7, total: 321 } }), { page: 2, totalPages: 7, total: 321 });
+});
+
+test("AUTO.RIA: підбір моделі та статистика цін", async () => {
+  const { matchMake, matchModel, statsFrom } = await import("../src/lib/shared/autoriaMatch.ts");
+  const marks = [{ name: "BMW", value: 9 }, { name: "Mercedes-Benz", value: 48 }, { name: "Toyota", value: 79 }];
+  assert.equal(matchMake(marks, "bmw").value, 9);
+  assert.equal(matchMake(marks, "Mercedes Benz").value, 48);
+  const bmw = [{ name: "3 Series", value: 1 }, { name: "3 Series GT", value: 2 }, { name: "X5", value: 3 }];
+  assert.equal(matchModel(bmw, "BMW", "330i Gran Turismo xDrive").value, 2);
+  assert.equal(matchModel(bmw, "BMW", "330i").value, 1);
+  assert.equal(matchModel(bmw, "BMW", "X5 xDrive40i").value, 3);
+  const toyota = [{ name: "RAV4", value: 5 }, { name: "Camry", value: 6 }];
+  assert.equal(matchModel(toyota, "Toyota", "RAV4 XLE").value, 5);
+  assert.equal(matchModel(toyota, "Toyota", "Supra"), undefined);
+  const merc = [{ name: "C-Class", value: 7 }];
+  assert.equal(matchModel(merc, "Mercedes-Benz", "C 300 4MATIC").value, 7);
+  assert.deepEqual(statsFrom([14000, 0, 15000, 16000, 20000]), { used: 4, medianUsd: 15500, p25Usd: 14750, p75Usd: 17000 });
+  assert.equal(statsFrom([14000]), null);
 });

@@ -1,10 +1,12 @@
-import { ProviderError, auctionConfigured, callProvider } from "@/lib/provider";
-import { audit } from "@/lib/audit";
-import { requireUser } from "@/lib/auth";
-import { fail } from "@/lib/server";
-import { isUnlocked, lotKeys, unlockLot } from "@/lib/unlocks";
-import { cleanVin } from "@/lib/vin";
-import { type VinHistory, type VinHistoryResponse, mapAuctionHistory, mapVinAudit } from "@/lib/vinhistory";
+import { ProviderError, auctionConfigured, callProvider } from "@/lib/server/provider";
+import { audit } from "@/lib/server/audit";
+import { requireUser } from "@/lib/server/auth";
+import { fail } from "@/lib/server/http";
+import { cleanVin } from "@/lib/shared/vin";
+import { historyLinks } from "@/lib/shared/historySites";
+import { mapAuctionHistory, mapVinAudit } from "@/lib/shared/vinhistory";
+import { route } from "@/lib/server/route";
+import type { VinHistory, VinHistoryResponse } from "@/types/vin";
 
 export const maxDuration = 60;
 
@@ -14,16 +16,7 @@ const TIMEOUT = 25_000;
 const vinAuditConfigured = () =>
   Boolean(process.env.VINAUDIT_API_KEY && process.env.VINAUDIT_USER && process.env.VINAUDIT_PASS);
 
-function links(vin: string) {
-  const enc = encodeURIComponent(vin);
-  return [
-    { label: "Carfax", href: `https://www.carfax.com/VehicleHistory/p/Report.cfx?vin=${enc}` },
-    { label: "AutoCheck", href: `https://www.autocheck.com/vehiclehistory/?vin=${enc}` },
-    { label: "NHTSA: відкличні кампанії", href: `https://www.nhtsa.gov/recalls?vin=${enc}` },
-  ];
-}
-
-export async function GET() {
+async function handleGET() {
   return Response.json({ auction: auctionConfigured(), nmvtis: vinAuditConfigured() });
 }
 
@@ -48,10 +41,10 @@ async function vinAudit(vin: string): Promise<unknown> {
   return r.json().catch(() => null);
 }
 
-export async function POST(request: Request) {
+async function handlePOST(request: Request) {
   const user = await requireUser("search");
   if (user instanceof Response) return user;
-  let body: { vin?: unknown; unlock?: unknown };
+  let body: { vin?: unknown };
   try {
     body = await request.json();
   } catch {
@@ -62,18 +55,9 @@ export async function POST(request: Request) {
 
   const auction = auctionConfigured();
   const nmvtis = vinAuditConfigured();
-  const base: VinHistoryResponse = { configured: auction || nmvtis, history: null, links: links(vin) };
+  const base: VinHistoryResponse = { configured: auction || nmvtis, history: null, links: historyLinks(vin) };
   if (!base.configured) return Response.json(base);
-  const keys = lotKeys("", vin);
-  if (!user.isAdmin && !(await isUnlocked(user.companyId, keys))) {
-    if (body.unlock !== true) {
-      return Response.json({ ...base, locked: true, credits: user.credits, message: "Історія за VIN доступна за тарифом." });
-    }
-    if (!(await unlockLot(user.companyId, user.id, keys, `VIN ${vin}`))) {
-      return fail(402, "Аналізи за вашим тарифом закінчились. Поповніть їх на сторінці «Оплата».");
-    }
-    await audit(user, "unlock", `VIN ${vin}`, "історія");
-  }
+  await audit(user, "unlock", `VIN ${vin}`, "історія");
 
   const [auctionRaw, nmvtisRaw] = await Promise.allSettled([
     auction ? callProvider("/api/v1/get-car-vin", { vin_number: vin }) : Promise.resolve(null),
@@ -114,3 +98,6 @@ export async function POST(request: Request) {
   }
   return Response.json({ ...base, history });
 }
+
+export const GET = route(handleGET);
+export const POST = route(handlePOST);

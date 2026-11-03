@@ -2,10 +2,11 @@
 
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
-import { AuthForm, AuthLink, goTo } from "@/components/AuthForm";
-import { GoogleButton } from "@/components/GoogleButton";
+import { AuthForm, AuthLink, goTo } from "@/components/auth/AuthForm";
+import { GoogleButton } from "@/components/auth/GoogleButton";
 import { Notice } from "@/components/ui";
-import { ROLE_LABEL } from "@/lib/me";
+import { ROLE_LABEL } from "@/lib/client/me";
+import { userMessage } from "@/lib/shared/errors";
 
 export default function InvitePage() {
   const { token } = useParams<{ token: string }>();
@@ -19,7 +20,7 @@ export default function InvitePage() {
         if (!r.ok) throw new Error(d.error);
         setInvite(d);
       })
-      .catch((e: Error) => setError(e.message || "Запрошення недійсне."));
+      .catch((e: unknown) => setError(userMessage(e, "Запрошення недійсне.")));
   }, [token]);
 
   if (error) {

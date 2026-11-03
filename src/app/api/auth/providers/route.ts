@@ -1,5 +1,8 @@
-import { googleConfig } from "@/lib/google";
+import { googleConfig } from "@/lib/server/google";
+import { route } from "@/lib/server/route";
 
-export async function GET() {
+async function handleGET() {
   return Response.json({ google: Boolean(googleConfig()), salesContact: process.env.SALES_CONTACT || "" });
 }
+
+export const GET = route(handleGET);

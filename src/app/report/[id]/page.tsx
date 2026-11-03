@@ -1,83 +1,39 @@
 "use client";
 
-import {
-  ArrowLeft,
-  Camera,
-  CarFront,
-  ChevronDown,
-  CircleCheck,
-  CircleX,
-  Crosshair,
-  FileSearch,
-  ListChecks,
-  Maximize2,
-  Pencil,
-  Printer,
-  ShieldCheck,
-  ThumbsUp,
-  TriangleAlert,
-  Wind,
-} from "lucide-react";
+import { AUCTIONS } from "@/lib/shared/auctions";
+import { useCostSettings } from "@/lib/client/rates";
+import { ArrowLeft, Camera, CarFront, ChevronDown, CircleCheck, Crosshair, FileSearch, ListChecks, Maximize2, Pencil, Printer, ShieldCheck, ThumbsUp, TriangleAlert, Wind } from "lucide-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { Lightbox } from "@/components/Lightbox";
-import { useEffect, useRef, useState, type ReactNode } from "react";
-import { CostBar, CostTable } from "@/components/CostTable";
-import { ExpertReviewCard } from "@/components/ExpertReviewCard";
-import { HistoryMarket } from "@/components/HistoryMarket";
-import { PrintReport } from "@/components/PrintReport";
-import { ScoreRing } from "@/components/ScoreRing";
+import { Lightbox } from "@/components/ui/Lightbox";
+import { PartsPrices } from "@/components/report/PartsPrices";
+import { useRef, useState } from "react";
+import { CostBar, CostTable } from "@/components/report/CostTable";
+import { ExpertReviewCard } from "@/components/report/ExpertReviewCard";
+import { HistoryMarket } from "@/components/report/HistoryMarket";
+import { PrintReport } from "@/components/report/PrintReport";
+import { ScoreRing } from "@/components/report/ScoreRing";
 import { Button, Notice } from "@/components/ui";
-import { calculate, usd } from "@/lib/calc";
-import { useCan, useMe } from "@/lib/me";
-import {
-  ACTION,
-  AIRBAG,
-  CONFIDENCE,
-  FUEL,
-  LEVEL,
-  LEVEL_TONE,
-  LIKELIHOOD,
-  RUN,
-  TONE_BG,
-  TONE_TEXT,
-  VERDICT,
-  lotTitle,
-  mileageText,
-} from "@/lib/labels";
-import {
-  updateReport,
-  useHydrated,
-  useReports,
-  useSettings,
-} from "@/lib/store";
-import type { CostOverrides, Level, PartAction } from "@/lib/types";
-
-type Tone = "good" | "warn" | "bad";
-
-const VERDICT_ICON = {
-  buy: CircleCheck,
-  caution: TriangleAlert,
-  avoid: CircleX,
-};
-const ACTION_STYLE: Record<PartAction, string> = {
-  replace: "bg-bad-bg text-bad",
-  repair: "bg-warn-bg text-warn",
-  paint: "bg-panel2 text-ink",
-  inspect: "bg-panel2 text-muted",
-};
-const LEVEL_DOTS: Record<Level, number> = { low: 1, medium: 2, high: 3 };
-const DOT = { good: "bg-good", warn: "bg-warn", bad: "bg-bad" };
+import { calculate, usd } from "@/lib/shared/calc";
+import { useCan, useMe } from "@/lib/client/me";
+import { ACTION, AIRBAG, CONFIDENCE, FUEL, LEVEL, LEVEL_TONE, LIKELIHOOD, RUN, TONE_BG, TONE_TEXT, VERDICT, lotTitle, mileageText } from "@/lib/shared/labels";
+import { updateReport, useHydrated, useReports } from "@/lib/client/store";
+import type { CostOverrides } from "@/types/report";
+import type { Tone } from "@/types/ui";
+import { VERDICT_ICON, ACTION_STYLE, LEVEL_DOTS } from "@/components/report/reportStyles";
+import { sameOverrides } from "@/lib/shared/overrides";
+import { Block, Kpi, Fact, ListBlock, EditField } from "@/components/report/ReportBlocks";
 
 export default function ReportPage() {
   const { id } = useParams<{ id: string }>();
   const hydrated = useHydrated();
   const reports = useReports();
-  const settings = useSettings();
+  const settings = useCostSettings();
   const me = useMe();
   const canPdf = useCan("pdf");
   const canSave = useCan("save");
   const canExpert = useCan("expert");
+  const canAnalyze = useCan("analyze");
   const [draft, setDraft] = useState<CostOverrides | null>(null);
   const [savedNote, setSavedNote] = useState(false);
   const editRef = useRef<HTMLElement>(null);
@@ -88,22 +44,16 @@ export default function ReportPage() {
 
   const report = reports.find((r) => r.id === id);
 
-  useEffect(() => {
-    if (canPdf) return;
-    document.body.classList.add("print-locked");
-    return () => document.body.classList.remove("print-locked");
-  }, [canPdf]);
-
   if (!hydrated) return <p className="text-sm text-muted">Завантажую звіт…</p>;
   if (!report) {
     return (
       <div className="card mx-auto max-w-md p-8 text-center">
-        <span className="mx-auto mb-4 grid size-12 place-items-center rounded-2xl bg-panel2 text-muted">
+        <span className="mx-auto mb-4 grid size-12 place-items-center rounded-xl bg-panel2 text-muted">
           <FileSearch className="size-6" />
         </span>
-        <h1 className="text-xl font-extrabold">Звіт не знайдено</h1>
+        <h1 className="text-xl font-semibold">Звіт не знайдено</h1>
         <p className="mt-2 text-sm text-muted">
-          Звіти без підписки не зберігаються й зникають після оновлення сторінки.
+          Незбережені звіти зникають після оновлення сторінки.
           Також звіт могли видалити, або він належить іншому користувачу.
         </p>
         <Link
@@ -177,7 +127,7 @@ export default function ReportPage() {
       ? `електро, ${lot.batteryKwh} кВт·год`
       : `${FUEL[lot.fuel]}, ${(lot.engineCc / 1000).toFixed(1)} л`;
   const auction = [
-    lot.auction === "Other" ? "" : lot.auction,
+    lot.auction === "Other" ? "" : AUCTIONS[lot.auction]?.label ?? lot.auction,
     lot.lotNumber && `лот ${lot.lotNumber}`,
   ]
     .filter(Boolean)
@@ -202,14 +152,6 @@ export default function ReportPage() {
     analysis.odometerOnPhoto ? `пробіг ${analysis.odometerOnPhoto}` : "",
   ].filter(Boolean);
 
-  const tags = [...new Set([auction, ...damages, lot.titleType].filter(Boolean))];
-  const heroFacts = [
-    ["Пробіг", mileageText(lot)],
-    ["Двигун", engine],
-    ["Стан", RUN[lot.runStatus]],
-    ["VIN", lot.vin],
-  ].filter(([, value]) => value);
-
   const savingsTone: Tone =
     cost.savingsPct >= settings.targetSavingsPct
       ? "good"
@@ -221,56 +163,66 @@ export default function ReportPage() {
     ...analysis.scenarios.map((s) => s.repairMaxUsd),
   );
 
+  const auctionMeta = lot.auction === "Other" ? null : AUCTIONS[lot.auction];
+  const created = new Date(report.createdAt);
+  const chips = [mileageText(lot), lot.titleType, ...damages].filter(Boolean);
+  const turnkey = `${Math.round(cost.totalMinUsd).toLocaleString("uk-UA")} – ${usd(cost.totalMaxUsd)}`;
+
   return (
     <>
       <div className="no-print">
-        <div className="mb-5 flex flex-wrap items-center gap-2">
-          <Link
-            href="/history"
-            className="mr-auto inline-flex items-center gap-1.5 rounded-xl py-2 pr-2 text-sm font-bold text-muted transition hover:text-ink"
-          >
-            <ArrowLeft className="size-4" /> Усі звіти
-          </Link>
-          {canEditAmounts && (
-            <Button
-              variant="secondary"
-              onClick={startEditing}
-              disabled={editing}
-              title={editing ? "Спершу збережіть або скасуйте поточні зміни нижче" : "Змінити суми в розрахунку"}
-            >
-              <Pencil className="size-4" /> Змінити суми
-            </Button>
-          )}
-          {canPdf ? (
-            <Button
-              onClick={() => {
-                if (report.saved) void fetch(`/api/reports/${report.id}/event`, { method: "POST" });
-                window.print();
-              }}
-            >
-              <Printer className="size-4" /> Звіт для клієнта (PDF)
-            </Button>
-          ) : (
-            me.status === "ready" &&
-            me.user?.role === "user" && (
-              <Link href="/billing" className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-line2 px-4 text-sm font-bold text-muted hover:text-ink">
-                <Printer className="size-4" /> PDF і збереження — з підпискою
-              </Link>
-            )
-          )}
-        </div>
+        <Link href="/history" className="inline-flex items-center gap-1.5 text-sm font-medium text-muted transition hover:text-ink">
+          <ArrowLeft className="size-4" /> Усі звіти
+        </Link>
+        <header className="mb-6 mt-3 flex flex-wrap items-start justify-between gap-4">
+          <div className="min-w-0">
+            <h1 className="text-2xl font-bold leading-tight tracking-[-0.02em] sm:text-[28px]">{lotTitle(lot)}</h1>
+            <div className="mt-2.5 flex flex-wrap items-center gap-2 text-[13px] text-muted">
+              {auctionMeta && (
+                <span className="rounded-md px-2 py-0.5 text-xs font-semibold text-white" style={{ background: auctionMeta.color }}>
+                  {auctionMeta.short}
+                </span>
+              )}
+              {lot.lotNumber && <span className="rounded-md bg-panel2 px-2 py-0.5 font-mono text-xs text-ink">Лот {lot.lotNumber}</span>}
+              {lot.vin && <span className="rounded-md bg-panel2 px-2 py-0.5 font-mono text-xs text-ink">{lot.vin}</span>}
+              {chips.map((c) => (
+                <span key={c} className="rounded-md border border-line px-2 py-0.5">
+                  {c}
+                </span>
+              ))}
+              {!Number.isNaN(created.getTime()) && <span>{created.toLocaleDateString("uk-UA")}</span>}
+            </div>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {canEditAmounts && (
+              <Button
+                variant="secondary"
+                onClick={startEditing}
+                disabled={editing}
+                title={editing ? "Спершу збережіть або скасуйте поточні зміни нижче" : "Змінити суми в розрахунку"}
+              >
+                <Pencil className="size-4" /> Змінити суми
+              </Button>
+            )}
+            {canPdf && (
+              <Button
+                onClick={() => {
+                  if (report.saved) void fetch(`/api/reports/${report.id}/event`, { method: "POST" });
+                  window.print();
+                }}
+              >
+                <Printer className="size-4" /> Завантажити PDF
+              </Button>
+            )}
+          </div>
+        </header>
 
         {report.saved === false && (
           <div className="mb-5">
             <Notice tone="warn" title="Звіт не збережено">
               {canSave
-                ? "Не вдалося зберегти звіт на сервері. Він зникне після оновлення сторінки."
-                : "Без активної підписки звіт можна лише переглянути. Після оновлення сторінки він зникне, а PDF недоступний."}{" "}
-              {!canSave && me.status === "ready" && me.user?.role === "user" && (
-                <Link href="/billing" className="font-bold underline">
-                  Оформити підписку
-                </Link>
-              )}
+                ? "Не вдалося зберегти звіт. Він зникне після оновлення сторінки, тож за потреби завантажте PDF."
+                : "Ваша роль не дозволяє зберігати звіти. Після оновлення сторінки він зникне."}
             </Notice>
           </div>
         )}
@@ -278,7 +230,7 @@ export default function ReportPage() {
         {report.demo && (
           <div className="mb-5">
             <Notice tone="warn" title="Демо-звіт: це не аналіз ваших фото">
-              Ключ API не був налаштований, тому опис пошкоджень і вилка ремонту
+              Аналіз фото на момент створення не був підключений, тому опис пошкоджень і вилка ремонту
               нижче — заздалегідь підготовлений приклад. Розрахунок розмитнення
               та ціни під ключ зроблено за введеними даними лота.
             </Notice>
@@ -287,15 +239,11 @@ export default function ReportPage() {
 
         {zoom && <Lightbox images={report.photos} index={activePhoto} onClose={() => setZoom(false)} onIndex={setPhoto} />}
 
-        <section className="rise grid gap-5 lg:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)]">
-          <div className="flex min-w-0 flex-col gap-3">
-            <div className="relative min-h-[22rem] flex-1 overflow-hidden rounded-3xl border border-line bg-surface sm:min-h-[26rem] lg:min-h-[31rem]">
+        <section className="rise grid gap-5 lg:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)]">
+          <div className="card flex min-w-0 flex-col gap-3 p-3">
+            <div className="relative aspect-[4/3] overflow-hidden rounded-xl bg-panel2 lg:aspect-auto lg:min-h-80 lg:flex-1">
               {report.photos.length > 0 ? (
-                <img
-                  src={report.photos[activePhoto]}
-                  alt={`Фото ${activePhoto + 1}`}
-                  className="absolute inset-0 size-full object-cover"
-                />
+                <img src={report.photos[activePhoto]} alt={`Фото ${activePhoto + 1}`} className="absolute inset-0 size-full object-cover" />
               ) : (
                 <div className="absolute inset-0 grid place-items-center text-faint">
                   <CarFront className="size-20" strokeWidth={1.2} />
@@ -307,149 +255,88 @@ export default function ReportPage() {
                   aria-label="Збільшити фото"
                   title="Збільшити фото"
                   onClick={() => setZoom(true)}
-                  className="no-print absolute bottom-4 right-4 z-10 grid size-10 place-items-center rounded-full bg-scrim text-white backdrop-blur transition hover:bg-black/80"
+                  className="absolute bottom-3 right-3 z-10 grid size-9 place-items-center rounded-lg bg-scrim text-white backdrop-blur transition hover:bg-black/80"
                 >
-                  <Maximize2 className="size-4.5" />
+                  <Maximize2 className="size-4" />
                 </button>
               )}
-              <div
-                aria-hidden
-                className="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,rgba(10,12,15,.6)_0%,rgba(10,12,15,0)_28%,rgba(10,12,15,0)_45%,rgba(10,12,15,.94)_100%)]"
-              />
-              <div className="absolute inset-x-4 top-4 flex flex-wrap items-center gap-2 sm:inset-x-5 sm:top-5">
-                {tags.map((tag) => (
-                  <span
-                    key={tag}
-                    className="rounded-full border border-white/15 bg-scrim px-3 py-1.5 text-xs font-bold text-white backdrop-blur"
-                  >
-                    {tag}
-                  </span>
-                ))}
-                {report.photos.length > 1 && (
-                  <span className="ml-auto rounded-full border border-white/15 bg-scrim px-3 py-1.5 text-xs font-bold text-white backdrop-blur">
-                    {activePhoto + 1} / {report.photos.length}
-                  </span>
-                )}
-              </div>
-              <div className="absolute inset-x-5 bottom-5 sm:inset-x-7 sm:bottom-6">
-                <h1 className="max-w-xl font-display text-[26px] font-semibold leading-[1.1] tracking-tight text-white sm:text-4xl">
-                  {lotTitle(lot)}
-                </h1>
-                <dl className="mt-4 flex flex-wrap gap-2">
-                  {heroFacts.map(([label, value]) => (
-                    <div
-                      key={label}
-                      className="flex gap-1.5 rounded-xl border border-white/10 bg-scrim px-3 py-1.5 text-[13px] backdrop-blur"
-                    >
-                      <dt className="font-semibold text-white/60">{label}</dt>
-                      <dd className="font-bold text-white">{value}</dd>
-                    </div>
-                  ))}
-                </dl>
-              </div>
+              {report.photos.length > 1 && (
+                <span className="absolute left-3 top-3 rounded-md bg-scrim px-2 py-1 text-xs font-medium text-white backdrop-blur">
+                  {activePhoto + 1} / {report.photos.length}
+                </span>
+              )}
             </div>
-
             {report.photos.length > 1 && (
-              <ul className="flex gap-2 overflow-x-auto pb-1">
-                {report.photos.map((src, i) => (
-                  <li key={i} className="shrink-0">
-                    <button
-                      type="button"
-                      onClick={() => setPhoto(i)}
-                      aria-label={`Показати фото ${i + 1}`}
-                      aria-pressed={i === activePhoto}
-                      className={`block overflow-hidden rounded-xl border-2 transition ${
-                        i === activePhoto
-                          ? "border-accent-text"
-                          : "border-line2 opacity-60 hover:opacity-100"
-                      }`}
-                    >
-                      <img
-                        src={src}
-                        alt=""
-                        className="h-14 w-20 object-cover"
-                      />
-                    </button>
-                  </li>
-                ))}
+              <ul className="grid grid-cols-6 gap-2">
+                {report.photos.slice(0, 6).map((src, i) => {
+                  const more = i === 5 && report.photos.length > 6;
+                  return (
+                    <li key={i}>
+                      <button
+                        type="button"
+                        onClick={() => (more ? (setPhoto(5), setZoom(true)) : setPhoto(i))}
+                        aria-label={more ? `Усі фото (${report.photos.length})` : `Показати фото ${i + 1}`}
+                        aria-pressed={i === activePhoto}
+                        className={`relative block aspect-[4/3] w-full overflow-hidden rounded-lg ring-2 transition ${
+                          i === activePhoto ? "ring-accent-text" : "ring-transparent hover:opacity-90"
+                        }`}
+                      >
+                        <img src={src} alt="" className="size-full object-cover" />
+                        {more && (
+                          <span className="absolute inset-0 grid place-items-center bg-scrim text-sm font-semibold text-white">
+                            +{report.photos.length - 5}
+                          </span>
+                        )}
+                      </button>
+                    </li>
+                  );
+                })}
               </ul>
             )}
           </div>
 
-          <div className="grid min-w-0 content-start gap-3.5 lg:grid-rows-[auto_1fr_auto]">
-            <div className="card flex items-center gap-5 p-5 sm:p-6">
-              <ScoreRing
-                score={analysis.conditionScore}
-                tone={verdict.tone}
-                size={92}
-              />
-              <div>
-                <p className="text-[11px] font-extrabold uppercase tracking-[0.09em] text-muted">
-                  Висновок
-                </p>
-                <p
-                  className={`mt-1 flex items-center gap-2 text-2xl font-extrabold leading-tight ${TONE_TEXT[verdict.tone]}`}
-                >
-                  <VerdictIcon className="size-6 shrink-0" strokeWidth={2.4} />
+          <div className="card flex min-w-0 flex-col p-5 sm:p-6">
+            <div className="flex items-center gap-4">
+              <ScoreRing score={analysis.conditionScore} tone={verdict.tone} size={76} />
+              <div className="min-w-0">
+                <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[13px] font-semibold ${TONE_BG[verdict.tone]} ${TONE_TEXT[verdict.tone]}`}>
+                  <VerdictIcon className="size-4" strokeWidth={2.4} />
                   {verdict.label}
-                </p>
-                <p className="mt-1 text-sm leading-snug text-muted">
-                  {verdict.text}
-                </p>
+                </span>
+                <p className="mt-1.5 text-sm leading-snug text-muted">{verdict.text}</p>
               </div>
             </div>
 
-            <div className="flex flex-col justify-center rounded-[1.25rem] bg-accent p-6 text-accent-ink">
-              <p className="text-[11px] font-extrabold uppercase tracking-[0.09em] opacity-65">
-                Ціна під ключ
-              </p>
-              <p className="mt-2.5 font-display text-[27px] font-semibold leading-[1.1] tracking-tight sm:text-[32px]">
-                {Math.round(cost.totalMinUsd).toLocaleString("uk-UA")} –{" "}
-                {usd(cost.totalMaxUsd)}
-              </p>
-              <p className="mt-2 text-sm font-bold opacity-70">
-                {bid > 0
-                  ? `при ставці ${usd(bid)} · з розмитненням і ремонтом`
-                  : "ставку не вказано, сума без вартості авто"}
+            <div className="mt-5 border-t border-line pt-5">
+              <p className="text-[13px] font-medium text-muted">Ціна під ключ</p>
+              <p className="mt-1 text-[28px] font-bold leading-tight tracking-[-0.02em] sm:text-[34px]">{turnkey}</p>
+              <p className="mt-1 text-[13px] text-muted">
+                {bid > 0 ? `при ставці ${usd(bid)} · з розмитненням і ремонтом` : "ставку не вказано, сума без вартості авто"}
               </p>
             </div>
 
-            <div className="grid grid-cols-2 gap-3.5">
+            <div className="mt-5 grid grid-cols-3 gap-2.5">
               <Kpi
                 label="Макс. ставка"
-                value={
-                  hasMarket
-                    ? cost.maxBidUsd
-                      ? usd(cost.maxBidUsd)
-                      : "Недосяжно"
-                    : "—"
-                }
-                note={
-                  hasMarket
-                    ? `для вигоди клієнта ${settings.targetSavingsPct} %`
-                    : "вкажіть ринкову ціну"
-                }
-                action={
-                  !hasMarket && !editing && canEditAmounts ? startEditing : undefined
-                }
+                value={hasMarket ? (cost.maxBidUsd ? usd(cost.maxBidUsd) : "Недосяжно") : "—"}
+                note={hasMarket ? `вигода ${settings.targetSavingsPct} %` : "немає ринку"}
+                action={!hasMarket && !editing && canEditAmounts ? startEditing : undefined}
               />
               <Kpi
-                label={
-                  hasMarket && cost.savingsUsd < 0 ? "Переплата" : "Вигода"
-                }
+                label={hasMarket && cost.savingsUsd < 0 ? "Переплата" : "Вигода"}
                 value={hasMarket ? usd(Math.abs(cost.savingsUsd)) : "—"}
-                badge={
-                  hasMarket
-                    ? `${Math.abs(cost.savingsPct).toFixed(0)} %`
-                    : undefined
-                }
+                note={hasMarket ? `${Math.abs(cost.savingsPct).toFixed(0)} % від ринку` : "немає з чим порівняти"}
                 tone={hasMarket ? savingsTone : undefined}
-                note={
-                  hasMarket
-                    ? `ринок в Україні ${usd(cost.marketPriceUsd)}`
-                    : "немає з чим порівняти"
-                }
               />
+              <Kpi
+                label="Ринок в Україні"
+                value={hasMarket ? usd(cost.marketPriceUsd) : "—"}
+                note={hasMarket ? (lot.marketSource && live.marketPriceUsd === undefined ? "AUTO.RIA" : "вручну") : "не вказано"}
+              />
+            </div>
+
+            <div className="mt-5 border-t border-line pt-5">
+              <CostBar cost={cost} compact />
             </div>
           </div>
         </section>
@@ -502,7 +389,7 @@ export default function ReportPage() {
                       type="button"
                       onClick={() => setPhoto(note.photo - 1)}
                       aria-label={`Показати фото ${note.photo}`}
-                      className="mt-px grid h-6 min-w-6 shrink-0 place-items-center rounded-md bg-panel2 px-1.5 text-[11px] font-extrabold ring-1 ring-line2 transition hover:bg-accent hover:text-accent-ink"
+                      className="mt-px grid h-6 min-w-6 shrink-0 place-items-center rounded-md bg-panel2 px-1.5 text-[11px] font-semibold ring-1 ring-line2 transition hover:bg-accent hover:text-accent-ink"
                     >
                       {note.photo}
                     </button>
@@ -516,65 +403,7 @@ export default function ReportPage() {
           </div>
         </Block>
 
-        <Block title="Історія та ринок">
-          <HistoryMarket
-            analysis={analysis}
-            comparables={report.comparables}
-            historyFiles={report.historyFiles}
-            vinHistory={report.vinHistory}
-            vin={report.lot.vin}
-          />
-        </Block>
-
-        {analysis.scenarios.length > 0 && (
-          <Block title="Сценарії ремонту">
-            <ul className="grid gap-3.5 md:grid-cols-3">
-              {analysis.scenarios.map((s, i) => {
-                const top = s.likelihood === "high";
-                return (
-                  <li
-                    key={i}
-                    className={`card flex flex-col p-5 ${top ? "!border-accent-text/50" : ""}`}
-                  >
-                    <span
-                      className={`self-start rounded-full px-2.5 py-1 text-[11px] font-extrabold ${
-                        top
-                          ? "bg-accent text-accent-ink"
-                          : "bg-panel2 text-muted ring-1 ring-line2"
-                      }`}
-                    >
-                      {LIKELIHOOD[s.likelihood]}
-                    </span>
-                    <p className="mt-3 text-base font-extrabold leading-snug">
-                      {s.name}
-                    </p>
-                    <p className="mt-1 flex-1 text-sm leading-relaxed text-muted">
-                      {s.description}
-                    </p>
-                    <p className="mt-3 text-[22px] font-extrabold tracking-tight">
-                      {Math.round(s.repairMinUsd).toLocaleString("uk-UA")} –{" "}
-                      {usd(s.repairMaxUsd)}
-                    </p>
-                    <div
-                      aria-hidden
-                      className="relative mt-2.5 h-1.5 rounded-full bg-line"
-                    >
-                      <span
-                        className="absolute inset-y-0 rounded-full bg-accent"
-                        style={{
-                          left: `${(s.repairMinUsd / scenarioMax) * 100}%`,
-                          width: `${Math.max(4, ((s.repairMaxUsd - s.repairMinUsd) / scenarioMax) * 100)}%`,
-                        }}
-                      />
-                    </div>
-                  </li>
-                );
-              })}
-            </ul>
-          </Block>
-        )}
-
-        <div className="grid items-start gap-x-5 lg:grid-cols-[minmax(0,1.25fr)_minmax(0,1fr)]">
+        <div className="grid items-start gap-x-5 lg:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)]">
           {analysis.damagedParts.length > 0 && (
             <Block title="Пошкоджені деталі">
               <ul className="card px-5 py-1.5 sm:px-6">
@@ -593,7 +422,7 @@ export default function ReportPage() {
                     </div>
                     <div className="flex items-center gap-4 sm:contents">
                       <span
-                        className={`justify-self-start rounded-full px-2.5 py-1 text-xs font-extrabold ${ACTION_STYLE[part.action]}`}
+                        className={`justify-self-start rounded-full px-2.5 py-1 text-xs font-semibold ${ACTION_STYLE[part.action]}`}
                       >
                         {ACTION[part.action]}
                       </span>
@@ -611,7 +440,7 @@ export default function ReportPage() {
                         </span>
                         {CONFIDENCE[part.confidence]}
                       </span>
-                      <span className="ml-auto whitespace-nowrap text-right text-[15px] font-extrabold sm:ml-0">
+                      <span className="ml-auto whitespace-nowrap text-right text-[15px] font-semibold sm:ml-0">
                         {Math.round(part.costMinUsd).toLocaleString("uk-UA")} –{" "}
                         {usd(part.costMaxUsd)}
                       </span>
@@ -625,40 +454,86 @@ export default function ReportPage() {
             </Block>
           )}
 
-          <Block id="cost-summary" title="З чого складається ціна">
-            <div className="card p-5 sm:p-6">
-              <p className="mb-3 text-[11px] font-extrabold uppercase tracking-[0.09em] text-muted">
-                Середня оцінка
-              </p>
-              <CostBar cost={cost} compact />
-              <div className="mt-5 flex items-baseline justify-between gap-3 border-t border-line pt-4">
-                <span className="text-sm font-bold text-muted">
-                  Разом під ключ
-                </span>
-                <span className="whitespace-nowrap text-lg font-extrabold">
-                  {Math.round(cost.totalMinUsd).toLocaleString("uk-UA")} –{" "}
-                  {usd(cost.totalMaxUsd)}
-                </span>
-              </div>
-              {!editing && (
-                <button
-                  type="button"
-                  onClick={toggleTable}
-                  aria-expanded={showTable}
-                  className="mt-4 flex w-full items-center justify-center gap-1.5 rounded-xl border border-line2 py-2.5 text-sm font-bold transition hover:bg-panel2"
-                >
-                  {showTable ? "Згорнути розрахунок" : "Показати всі статті"}
-                  <ChevronDown
-                    className={`size-4 transition ${showTable ? "rotate-180" : ""}`}
-                  />
-                </button>
-              )}
-            </div>
-          </Block>
+          {analysis.scenarios.length > 0 && (
+            <Block title="Сценарії ремонту">
+              <ul className="card divide-y divide-line">
+                {analysis.scenarios.map((s, i) => {
+                  const top = s.likelihood === "high";
+                  return (
+                    <li key={i} className="p-4 sm:px-5">
+                      <div className="flex items-start justify-between gap-3">
+                        <p className="font-semibold leading-snug">{s.name}</p>
+                        <span className={`shrink-0 rounded-full px-2.5 py-0.5 text-xs font-medium ${top ? "bg-accent text-accent-ink" : "bg-panel2 text-muted"}`}>
+                          {LIKELIHOOD[s.likelihood]}
+                        </span>
+                      </div>
+                      <p className="mt-1 text-[13px] leading-relaxed text-muted">{s.description}</p>
+                      <div className="mt-2.5 flex items-center gap-3">
+                        <div aria-hidden className="relative h-1.5 flex-1 rounded-full bg-line">
+                          <span
+                            className="absolute inset-y-0 rounded-full bg-accent"
+                            style={{
+                              left: `${(s.repairMinUsd / scenarioMax) * 100}%`,
+                              width: `${Math.max(4, ((s.repairMaxUsd - s.repairMinUsd) / scenarioMax) * 100)}%`,
+                            }}
+                          />
+                        </div>
+                        <span className="whitespace-nowrap text-sm font-semibold">
+                          {Math.round(s.repairMinUsd).toLocaleString("uk-UA")} – {usd(s.repairMaxUsd)}
+                        </span>
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            </Block>
+          )}
         </div>
 
+        <PartsPrices
+          report={report}
+          settings={settings}
+          canRun={canAnalyze}
+          canApply={canEditAmounts}
+          onApply={(minUsd, maxUsd) => {
+            setSavedNote(false);
+            setDraft({ ...overrides, repairMinUsd: minUsd, repairMaxUsd: maxUsd });
+            scrollTo(editRef, true);
+          }}
+        />
+
+        <Block id="cost-summary" title="З чого складається ціна">
+          <div className="card p-5 sm:p-6">
+            <div className="flex flex-wrap items-baseline justify-between gap-3">
+              <span className="text-sm font-medium text-muted">Разом під ключ</span>
+              <span className="whitespace-nowrap text-xl font-bold tracking-tight">
+                {Math.round(cost.totalMinUsd).toLocaleString("uk-UA")} – {usd(cost.totalMaxUsd)}
+              </span>
+            </div>
+            <dl className="mt-4 grid grid-cols-2 gap-3 border-t border-line pt-4 lg:grid-cols-4">
+              {cost.groups.map((g) => (
+                <div key={g.title} className="rounded-xl bg-panel2 px-3.5 py-3">
+                  <dt className="text-xs font-medium text-muted">{g.title}</dt>
+                  <dd className="mt-0.5 text-base font-semibold">{usd(g.subtotal)}</dd>
+                </div>
+              ))}
+            </dl>
+            {!editing && (
+              <button
+                type="button"
+                onClick={toggleTable}
+                aria-expanded={showTable}
+                className="mt-4 flex w-full items-center justify-center gap-1.5 rounded-[10px] border border-line2 py-2.5 text-sm font-semibold transition hover:bg-panel2"
+              >
+                {showTable ? "Згорнути розрахунок" : "Показати всі статті"}
+                <ChevronDown className={`size-4 transition ${showTable ? "rotate-180" : ""}`} />
+              </button>
+            )}
+          </div>
+        </Block>
+
         {savedNote && (
-          <div role="status" className="no-print mt-4 flex items-center gap-2 rounded-2xl border border-good/30 bg-good-bg px-4 py-3 text-sm font-bold text-good">
+          <div role="status" className="no-print mt-4 flex items-center gap-2 rounded-xl border border-good/30 bg-good-bg px-4 py-3 text-sm font-bold text-good">
             <CircleCheck className="size-4.5" /> Зміни збережено. Розрахунок і PDF оновлено.
           </div>
         )}
@@ -666,8 +541,8 @@ export default function ReportPage() {
         {showTable && (
           <section ref={editing ? editRef : tableRef} className="rise mt-5 scroll-mt-24">
             {editing && (
-              <div className="mb-4 rounded-2xl border border-accent-text/30 bg-accent-text/[0.06] p-4">
-                <p className="mb-1 flex items-center gap-2 text-sm font-extrabold">
+              <div className="mb-4 rounded-xl border border-accent-text/30 bg-accent-text/[0.06] p-4">
+                <p className="mb-1 flex items-center gap-2 text-sm font-semibold">
                   <Pencil className="size-4 text-accent-text" /> Редагування сум
                 </p>
                 <p className="mb-3 text-xs text-muted">
@@ -681,15 +556,16 @@ export default function ReportPage() {
                 </div>
               </div>
             )}
-            <div className="rounded-2xl bg-surface">
+            <div className="rounded-xl bg-surface">
               <CostTable cost={cost} editing={editing} overrides={live} onOverride={setOverride} />
             </div>
             <p className="mt-2.5 text-xs leading-relaxed text-faint">
-              Митна вартість {usd(cost.customsValueUsd)}. Курси: 1 € = {settings.eurUsd} $, 1 $ = {settings.usdUah} грн.
+              Митна вартість {usd(cost.customsValueUsd)}. Курси{settings.autoRates ? " НБУ" : ""}: 1 € = {settings.eurUsd} $, 1 $ = {settings.usdUah} грн.
               Збір аукціону та логістика — оцінка за тарифами компанії.
+              {lot.marketSource && live.marketPriceUsd === undefined ? ` Ринкова ціна: ${lot.marketSource}.` : ""}
             </p>
             {editing && (
-              <div className="no-print sticky bottom-3 z-20 mt-4 flex flex-wrap items-center gap-3 rounded-2xl border border-line2 bg-surface/95 p-3 shadow-[var(--shadow-card)] backdrop-blur">
+              <div className="no-print sticky bottom-3 z-20 mt-4 flex flex-wrap items-center gap-3 rounded-xl border border-line2 bg-surface/95 p-3 shadow-[var(--shadow-card)] backdrop-blur">
                 <span className={`mr-auto text-sm font-bold ${dirty ? "text-warn" : "text-muted"}`}>
                   {dirty ? "Є незбережені зміни" : "Змін поки немає"}
                 </span>
@@ -704,7 +580,17 @@ export default function ReportPage() {
           </section>
         )}
 
-        <div className="mt-9 grid gap-3.5 md:grid-cols-2">
+        <Block title="Історія та ринок">
+          <HistoryMarket
+            analysis={analysis}
+            comparables={report.comparables}
+            historyFiles={report.historyFiles}
+            vinHistory={report.vinHistory}
+            vin={report.lot.vin}
+          />
+        </Block>
+
+        <div className="mt-8 grid gap-4 md:grid-cols-2">
           <ListBlock
             icon={<TriangleAlert className="size-4" />}
             title="Ризики"
@@ -753,177 +639,3 @@ export default function ReportPage() {
   );
 }
 
-function Block({ title, children, id }: { title: string; children: ReactNode; id?: string }) {
-  return (
-    <section id={id} className="mt-9 min-w-0 scroll-mt-24">
-      <h2 className="mb-3.5 text-xl font-extrabold tracking-tight">{title}</h2>
-      {children}
-    </section>
-  );
-}
-
-function Kpi({
-  label,
-  value,
-  note,
-  badge,
-  tone,
-  action,
-}: {
-  label: string;
-  value: string;
-  note: string;
-  badge?: string;
-  tone?: Tone;
-  action?: () => void;
-}) {
-  return (
-    <div className="card p-5">
-      <p className="text-[11px] font-extrabold uppercase tracking-[0.09em] text-muted">
-        {label}
-      </p>
-      <p className="mt-2 flex flex-wrap items-center gap-2 text-2xl font-extrabold leading-tight tracking-tight">
-        {value}
-        {badge && tone && (
-          <span
-            className={`rounded-full px-2 py-0.5 text-xs font-extrabold ${TONE_BG[tone]} ${TONE_TEXT[tone]}`}
-          >
-            {badge}
-          </span>
-        )}
-      </p>
-      <p className="mt-1 text-[13px] text-muted">{note}</p>
-      {action && (
-        <button
-          type="button"
-          onClick={action}
-          className="mt-1 text-sm font-bold text-accent-text hover:underline"
-        >
-          Вказати
-        </button>
-      )}
-    </div>
-  );
-}
-
-function Fact({
-  icon,
-  label,
-  value,
-  note,
-  tone,
-}: {
-  icon: ReactNode;
-  label: string;
-  value: string;
-  note?: string;
-  tone?: Tone;
-}) {
-  return (
-    <div className="card p-5">
-      <p className="flex items-center gap-2 text-xs font-bold text-muted">
-        {icon} {label}
-      </p>
-      <p className="mt-2 flex items-center gap-2 text-[17px] font-extrabold leading-snug">
-        {tone && (
-          <span
-            aria-hidden
-            className={`size-2.5 shrink-0 rounded-full ${DOT[tone]}`}
-          />
-        )}
-        <span
-          className={`first-letter:uppercase ${tone ? TONE_TEXT[tone] : ""}`}
-        >
-          {value}
-        </span>
-      </p>
-      {note && (
-        <p className="mt-1.5 text-[13px] leading-relaxed text-muted">{note}</p>
-      )}
-    </div>
-  );
-}
-
-function ListBlock({
-  icon,
-  title,
-  items,
-  tone,
-  empty,
-}: {
-  icon: ReactNode;
-  title: string;
-  items: string[];
-  tone?: Tone;
-  empty: string;
-}) {
-  const badge = tone
-    ? {
-        good: "bg-good-bg text-good",
-        warn: "bg-warn-bg text-warn",
-        bad: "bg-bad-bg text-bad",
-      }[tone]
-    : "bg-panel2 text-ink";
-  const dot = tone ? DOT[tone] : "bg-muted";
-  return (
-    <section className="card p-5 sm:p-6">
-      <h2 className="mb-3.5 flex items-center gap-2.5 text-base font-extrabold tracking-tight">
-        <span className={`grid size-8 place-items-center rounded-lg ${badge}`}>
-          {icon}
-        </span>
-        {title}
-      </h2>
-      {items.length === 0 ? (
-        <p className="text-sm text-muted">{empty}</p>
-      ) : (
-        <ul className="space-y-2 text-sm leading-relaxed text-ink/90">
-          {items.map((item, i) => (
-            <li key={i} className="flex gap-2.5">
-              <span
-                aria-hidden
-                className={`mt-2 size-1.5 shrink-0 rounded-full ${dot}`}
-              />
-              <span>{item}</span>
-            </li>
-          ))}
-        </ul>
-      )}
-    </section>
-  );
-}
-
-function sameOverrides(a: CostOverrides, b: CostOverrides): boolean {
-  const keys = new Set([...Object.keys(a), ...Object.keys(b)]) as Set<keyof CostOverrides>;
-  for (const k of keys) if ((a[k] ?? null) !== (b[k] ?? null)) return false;
-  return true;
-}
-
-function EditField({
-  label,
-  value,
-  onChange,
-}: {
-  label: string;
-  value: number;
-  onChange: (value: number) => void;
-}) {
-  return (
-    <label className="block">
-      <span className="mb-1.5 block text-xs font-bold text-ink/80">
-        {label}
-      </span>
-      <input
-        type="number"
-        min={0}
-        className="control"
-        value={value}
-        onChange={(e) => {
-          const v = Number(e.target.value);
-          onChange(
-            e.target.value === "" || !Number.isFinite(v) ? 0 : Math.max(0, v),
-          );
-        }}
-      />
-    </label>
-  );
-}

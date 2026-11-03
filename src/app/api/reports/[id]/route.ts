@@ -1,8 +1,9 @@
-import { audit } from "@/lib/audit";
-import { requireUser } from "@/lib/auth";
-import { query } from "@/lib/db";
-import { can } from "@/lib/roles";
-import { fail, readJson, text } from "@/lib/server";
+import { audit } from "@/lib/server/audit";
+import { requireUser } from "@/lib/server/auth";
+import { query } from "@/lib/server/db";
+import { can } from "@/lib/shared/roles";
+import { fail, readJson, text } from "@/lib/server/http";
+import { route } from "@/lib/server/route";
 
 interface Ctx {
   params: Promise<{ id: string }>;
@@ -13,7 +14,7 @@ async function find(id: string, companyId: string) {
   return rows[0] ?? null;
 }
 
-export async function PATCH(request: Request, { params }: Ctx) {
+async function handlePATCH(request: Request, { params }: Ctx) {
   const user = await requireUser("reports");
   if (user instanceof Response) return user;
   const { id } = await params;
@@ -25,7 +26,7 @@ export async function PATCH(request: Request, { params }: Ctx) {
   if (!overrides && !expert) return fail(400, "Нічого змінювати.");
   if (expert && !can(user, "expert")) return fail(403, "Недостатньо прав для цієї дії.");
   if (overrides && !can(user, "expert") && (row.user_id !== user.id || !can(user, "save"))) {
-    return fail(403, "Змінювати розрахунок може лише автор звіту з активною підпискою.");
+    return fail(403, "Змінювати розрахунок може лише автор звіту або експерт СТО.");
   }
   if (overrides) await query("update reports set body = jsonb_set(body, '{overrides}', $2::jsonb) where id = $1", [id, JSON.stringify(overrides)]);
   if (expert) {
@@ -35,7 +36,7 @@ export async function PATCH(request: Request, { params }: Ctx) {
   return Response.json({ ok: true });
 }
 
-export async function DELETE(_request: Request, { params }: Ctx) {
+async function handleDELETE(_request: Request, { params }: Ctx) {
   const user = await requireUser("reports");
   if (user instanceof Response) return user;
   const { id } = await params;
@@ -46,3 +47,6 @@ export async function DELETE(_request: Request, { params }: Ctx) {
   await audit(user, "report_delete", row.title || id);
   return Response.json({ ok: true });
 }
+
+export const PATCH = route(handlePATCH);
+export const DELETE = route(handleDELETE);

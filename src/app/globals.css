@@ -1,32 +1,62 @@
 @import "tailwindcss";
 
 :root {
-  --accent: #c8f542;
-  --accent-ink: #0a0c0f;
-  --accent-text: #c8f542;
+  --accent: #2b59ff;
+  --accent-ink: #ffffff;
+  --accent-text: #2b59ff;
 
-  --paper: #0a0c0f;
-  --surface: #12151a;
-  --panel-2: #181c22;
-  --line: #232830;
-  --line-2: #2e343d;
+  --paper: #f6f7f9;
+  --surface: #ffffff;
+  --panel-2: #f2f4f7;
+  --line: #e4e7ec;
+  --line-2: #d0d5dd;
+  --ink: #101828;
+  --on-ink: #ffffff;
+  --muted: #475467;
+  --faint: #667085;
+  --scrim: rgba(16, 24, 40, 0.62);
+
+  --good: #05603a;
+  --good-bg: #ecfdf3;
+  --warn: #93370d;
+  --warn-bg: #fef3e2;
+  --bad: #b42318;
+  --bad-bg: #fef3f2;
+
+  --series-1: #2a78d6;
+  --series-2: #eb6834;
+  --series-3: #1baf7a;
+  --series-4: #eda100;
+
+  --card-shadow: 0 1px 2px rgba(16, 24, 40, 0.04);
+  --pop-shadow: 0 16px 40px -12px rgba(16, 24, 40, 0.22);
+  color-scheme: light;
+}
+
+:root[data-theme="dark"] {
+  --paper: #0b0d11;
+  --surface: #13161c;
+  --panel-2: #1a1e25;
+  --line: #242932;
+  --line-2: #313844;
   --ink: #f2f4f7;
   --on-ink: #0a0c0f;
-  --muted: #9aa3b2;
-  --faint: #6b7483;
+  --muted: #a3acba;
+  --faint: #7a8394;
   --scrim: rgba(10, 12, 15, 0.66);
-
   --good: #5fdd8c;
   --good-bg: rgba(95, 221, 140, 0.13);
   --warn: #f5b942;
   --warn-bg: rgba(245, 185, 66, 0.13);
   --bad: #ff7a70;
   --bad-bg: rgba(255, 122, 112, 0.13);
-
   --series-1: #3987e5;
   --series-2: #d95926;
   --series-3: #199e70;
   --series-4: #c98500;
+  --card-shadow: none;
+  --pop-shadow: 0 24px 60px -20px rgba(0, 0, 0, 0.8);
+  color-scheme: dark;
 }
 
 @theme inline {
@@ -49,14 +79,14 @@
   --color-warn-bg: var(--warn-bg);
   --color-bad: var(--bad);
   --color-bad-bg: var(--bad-bg);
-  --font-sans: "Manrope Variable", ui-sans-serif, system-ui, "Segoe UI", Roboto, sans-serif;
-  --font-display: "Unbounded Variable", "Manrope Variable", ui-sans-serif, system-ui, sans-serif;
-  --shadow-card: 0 1px 0 rgba(255, 255, 255, 0.02) inset;
-  --shadow-pop: 0 24px 60px -20px rgba(0, 0, 0, 0.8);
+  --font-sans: "Geist Variable", ui-sans-serif, system-ui, "Segoe UI", Roboto, sans-serif;
+  --font-display: "Geist Variable", ui-sans-serif, system-ui, "Segoe UI", Roboto, sans-serif;
+  --font-mono: "Geist Mono Variable", ui-monospace, SFMono-Regular, Menlo, monospace;
+  --shadow-card: var(--card-shadow);
+  --shadow-pop: var(--pop-shadow);
 }
 
 html {
-  color-scheme: dark;
   scroll-behavior: smooth;
   scroll-padding-top: 5.5rem;
 }
@@ -64,8 +94,9 @@ html {
 body {
   background: var(--paper);
   color: var(--ink);
-  font-family: "Manrope Variable", ui-sans-serif, system-ui, "Segoe UI", Roboto, sans-serif;
+  font-family: "Geist Variable", ui-sans-serif, system-ui, "Segoe UI", Roboto, sans-serif;
   font-feature-settings: "tnum" 1;
+  -webkit-font-smoothing: antialiased;
 }
 
 h1,
@@ -75,25 +106,26 @@ h3 {
 }
 
 .app-bg {
-  background:
-    radial-gradient(60rem 26rem at 12% -14%, color-mix(in srgb, var(--accent) 9%, transparent), transparent 70%),
-    var(--paper);
-  background-repeat: no-repeat;
+  background: var(--paper);
 }
 
 .card {
   border: 1px solid var(--line);
-  border-radius: 1.25rem;
+  border-radius: 1rem;
   background: var(--surface);
-  box-shadow: var(--shadow-card);
+  box-shadow: var(--card-shadow);
+}
+
+.font-display {
+  letter-spacing: -0.02em;
 }
 
 .control {
   width: 100%;
-  min-height: 2.75rem;
+  min-height: 2.5rem;
   border: 1px solid var(--line-2);
-  border-radius: 0.75rem;
-  background: var(--paper);
+  border-radius: 0.625rem;
+  background-color: var(--surface);
   padding: 0.55rem 0.85rem;
   font-size: 0.9375rem;
   font-weight: 500;
@@ -103,23 +135,6 @@ h3 {
     border-color 140ms,
     box-shadow 140ms;
 }
-select.control {
-  appearance: none;
-  -webkit-appearance: none;
-  cursor: pointer;
-  padding-right: 2.5rem;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%239aa3b2' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
-  background-repeat: no-repeat;
-  background-position: right 0.8rem center;
-  background-size: 1.1rem;
-}
-:root[data-theme="light"] select.control {
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23566070' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
-}
-select.control option {
-  background: var(--surface);
-  color: var(--ink);
-}
 .control[aria-invalid="true"] {
   border-color: var(--bad);
 }
@@ -128,7 +143,13 @@ select.control option {
   font-weight: 400;
 }
 .control:hover {
-  border-color: #414955;
+  border-color: #98a2b3;
+}
+:root[data-theme="dark"] .control {
+  background-color: var(--paper);
+}
+:root[data-theme="dark"] .control:hover {
+  border-color: #475061;
 }
 .control:focus-visible {
   outline: none;
@@ -152,38 +173,6 @@ select.control option {
 
 .print-only {
   display: none;
-}
-
-:root[data-theme="light"] {
-  --paper: #f3f4f7;
-  --surface: #ffffff;
-  --panel-2: #eef0f4;
-  --line: #e1e4ea;
-  --line-2: #cdd2dc;
-  --ink: #0e1324;
-  --on-ink: #ffffff;
-  --muted: #586176;
-  --faint: #7d869a;
-  --good: #0f7a43;
-  --good-bg: #e3f6ea;
-  --warn: #8f5300;
-  --warn-bg: #fdf1d8;
-  --bad: #c0271f;
-  --bad-bg: #fdeae8;
-  --series-1: #2a78d6;
-  --series-2: #eb6834;
-  --series-3: #1baf7a;
-  --series-4: #eda100;
-  color-scheme: light;
-}
-:root[data-theme="light"] .card {
-  box-shadow: 0 1px 2px rgba(14, 19, 36, 0.05), 0 10px 28px -16px rgba(14, 19, 36, 0.16);
-}
-:root[data-theme="light"] .control {
-  background: var(--surface);
-}
-:root[data-theme="light"] .control:hover {
-  border-color: #aeb5c3;
 }
 
 @keyframes rise {
@@ -255,16 +244,6 @@ select.control option {
   }
   .no-print {
     display: none !important;
-  }
-  .print-locked .print-only {
-    display: none !important;
-  }
-  .print-locked body::before,
-  body.print-locked::before {
-    content: "Друк і PDF доступні лише з активною підпискою.";
-    display: block;
-    padding: 2rem;
-    font-size: 1.1rem;
   }
   .print-only {
     display: block !important;

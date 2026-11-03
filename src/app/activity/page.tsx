@@ -1,44 +1,48 @@
 "use client";
 
+import { useCostSettings } from "@/lib/client/rates";
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { AuditList, stamp, type AuditEntry } from "@/components/AuditList";
+import { AuditList } from "@/components/admin/AuditList";
+import { stamp, VERDICT, TONE_TEXT, formatDate, lotTitle } from "@/lib/shared/labels";
 import { Notice, PageHeader } from "@/components/ui";
-import { api } from "@/lib/api";
-import { usd, calculate } from "@/lib/calc";
-import { VERDICT, TONE_TEXT, formatDate, lotTitle } from "@/lib/labels";
-import { ROLE_LABEL, type Role } from "@/lib/roles";
-import { useHydrated, useReports, useSettings } from "@/lib/store";
-
-interface Activity {
-  members: { id: string; name: string; email: string; role: Role; active: boolean; last_seen: string | null; last_login: string | null; analyses: string; unlocks: string; saved: string; pdfs: string; logins: string }[];
-  log: (AuditEntry & { user_id: string | null })[];
-}
+import { api } from "@/lib/client/api";
+import { usd, calculate } from "@/lib/shared/calc";
+import { ROLE_LABEL } from "@/lib/shared/roles";
+import { useHydrated, useReports } from "@/lib/client/store";
+import { useMe } from "@/lib/client/me";
+import { userMessage } from "@/lib/shared/errors";
+import type { ActivityData } from "@/types/team";
 
 export default function ActivityPage() {
-  const [data, setData] = useState<Activity | null>(null);
+  const [data, setData] = useState<ActivityData | null>(null);
   const [error, setError] = useState("");
   const [user, setUser] = useState("");
   const hydrated = useHydrated();
   const reports = useReports();
-  const settings = useSettings();
+  const settings = useCostSettings();
+  const me = useMe();
+  const lead = me.status === "ready" && me.user?.role === "lead";
 
   useEffect(() => {
     let alive = true;
-    api<Activity>(`/api/activity${user ? `?user=${user}` : ""}`)
+    api<ActivityData>(`/api/activity${user ? `?user=${user}` : ""}`)
       .then((d) => alive && setData(d))
-      .catch((e: Error) => alive && setError(e.message));
+      .catch((e: unknown) => alive && setError(userMessage(e)));
     return () => {
       alive = false;
     };
   }, [user]);
 
-  const people = data?.members.filter((m) => m.role !== "admin") ?? [];
+  const people = data?.members.filter((m) => m.role !== "admin" && (!lead || m.id !== (me.status === "ready" ? me.user?.id : ""))) ?? [];
   const visibleReports = user ? reports.filter((r) => r.authorId === user) : reports;
 
   return (
     <div>
-      <PageHeader title="Активність команди" description="Що робили менеджери та спеціалісти: входи, аналізи, відкриті лоти, збережені звіти й PDF. Нижче — усі звіти компанії." />
+      <PageHeader
+        title={lead ? "Активність моєї команди" : "Активність компанії"}
+        description={lead ? "Що робили менеджери вашої команди: входи, аналізи, відкриті лоти, збережені звіти й PDF. Нижче — їхні звіти." : "Що робили люди компанії: входи, аналізи, відкриті лоти, збережені звіти й PDF. Нижче — усі звіти компанії."}
+      />
       {error && (
         <div className="mb-5">
           <Notice tone="bad" title="Помилка">
@@ -89,7 +93,7 @@ export default function ActivityPage() {
         <p className="border-t border-line px-4 py-2 text-xs text-muted">Лічильники за поточний місяць. Натисніть на ім&apos;я, щоб відфільтрувати події та звіти.</p>
       </section>
 
-      <h2 className="mb-3 text-lg font-extrabold">Звіти {user ? "вибраної людини" : "компанії"}</h2>
+      <h2 className="mb-3 text-lg font-semibold">Звіти {user ? "вибраної людини" : "компанії"}</h2>
       {!hydrated ? (
         <p className="mb-6 text-sm text-muted">Завантажую…</p>
       ) : visibleReports.length === 0 ? (
@@ -109,8 +113,8 @@ export default function ActivityPage() {
                         {formatDate(r.createdAt)} · {r.authorName ?? "—"}
                       </span>
                     </span>
-                    <span className={`text-xs font-extrabold ${TONE_TEXT[verdict.tone]}`}>{verdict.label}</span>
-                    <span className="text-sm font-extrabold tabular-nums">
+                    <span className={`text-xs font-semibold ${TONE_TEXT[verdict.tone]}`}>{verdict.label}</span>
+                    <span className="text-sm font-semibold tabular-nums">
                       {usd(cost.totalMinUsd)} – {usd(cost.totalMaxUsd)}
                     </span>
                   </Link>
@@ -121,7 +125,7 @@ export default function ActivityPage() {
         </div>
       )}
 
-      <h2 className="mb-3 text-lg font-extrabold">Журнал подій</h2>
+      <h2 className="mb-3 text-lg font-semibold">Журнал подій</h2>
       <div className="card overflow-hidden">{data ? <AuditList entries={data.log} /> : <p className="p-5 text-sm text-muted">Завантажую…</p>}</div>
     </div>
   );

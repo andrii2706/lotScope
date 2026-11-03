@@ -1,77 +1,86 @@
 "use client";
 
-import { confirmDialog } from "@/components/ConfirmDialog";
-import { Copy, Link2, Power, Trash2 } from "lucide-react";
+import { Button, Notice, PageHeader, Select, confirmDialog } from "@/components/ui";
+import { Copy, Link2, Plus, Power, Trash2, Users } from "lucide-react";
 import { useEffect, useState } from "react";
-import { Button, Notice, PageHeader, Segmented } from "@/components/ui";
-import { api } from "@/lib/api";
-import { ROLE_LABEL, refreshMe, useMe } from "@/lib/me";
+import { api } from "@/lib/client/api";
+import { ROLE_LABEL, refreshMe, useMe } from "@/lib/client/me";
+import { userMessage } from "@/lib/shared/errors";
+import type { InviteRole, TeamData, TeamMember } from "@/types/team";
 
-interface Team {
-  members: { id: string; name: string; email: string; role: "admin" | "manager" | "expert" | "user"; active: boolean; google: boolean; created_at: string; analyses: string }[];
-  invites: { role: "manager" | "expert"; expires_at: string }[];
-  seats: { total: number; active: number; pending: number; free: number };
-  companyName: string;
-}
+const ROLE_OPTIONS = (["lead", "manager", "expert"] as const).map((r) => ({ value: r, label: ROLE_LABEL[r] }));
 
 export default function TeamPage() {
   const me = useMe();
-  const [team, setTeam] = useState<Team | null>(null);
-  const [role, setRole] = useState<"manager" | "expert">("manager");
-  const [link, setLink] = useState("");
-  const [copied, setCopied] = useState(false);
+  const [data, setData] = useState<TeamData | null>(null);
   const [error, setError] = useState("");
   const [version, setVersion] = useState(0);
+  const [role, setRole] = useState<InviteRole>("manager");
+  const [inviteTeam, setInviteTeam] = useState("");
+  const [teamName, setTeamName] = useState("");
   const [companyName, setCompanyName] = useState("");
+  const [link, setLink] = useState("");
+  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     let alive = true;
-    api<Team>("/api/team")
+    api<TeamData>("/api/team")
       .then((t) => {
         if (!alive) return;
-        setTeam(t);
+        setData(t);
         setCompanyName(t.companyName);
       })
-      .catch((e: Error) => alive && setError(e.message));
+      .catch((e: unknown) => alive && setError(userMessage(e)));
     return () => {
       alive = false;
     };
   }, [version]);
 
-  const owner = me.status === "ready" && me.user?.role === "admin";
   const reload = () => setVersion((v) => v + 1);
+  const myId = me.status === "ready" ? me.user?.id : undefined;
+  const lead = Boolean(data?.lead);
+  const teams = data?.teams ?? [];
+  const teamName_ = (id: string | null) => teams.find((t) => t.id === id)?.name ?? "";
 
-  async function invite() {
-    setError("");
-    setCopied(false);
-    try {
-      const r = await api<{ url: string }>("/api/team", { body: { role } });
-      setLink(r.url);
-      reload();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Не вдалося створити запрошення.");
-    }
-  }
-
-  async function act(method: "PATCH" | "DELETE", body: Record<string, unknown>) {
+  async function call(method: "POST" | "PATCH" | "DELETE", body: Record<string, unknown>) {
     setError("");
     try {
-      await api("/api/team", { method, body });
+      const r = await api<{ url?: string }>("/api/team", { method, body });
       reload();
       void refreshMe();
+      return r;
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Не вдалося.");
+      setError(userMessage(e, "Не вдалося."));
+      return null;
     }
   }
 
-  const seats = team?.seats;
-  const full = seats ? seats.free < 1 : false;
+  async function invite() {
+    if (!lead && role === "lead" && !inviteTeam) return setError("Оберіть команду для керівника.");
+    const r = await call("POST", lead ? { role: "manager" } : { role, teamId: role === "expert" ? null : inviteTeam || null });
+    if (r?.url) {
+      setLink(r.url);
+      setCopied(false);
+    }
+  }
+
+  async function createTeam(e: React.FormEvent) {
+    e.preventDefault();
+    if (!teamName.trim()) return setError("Вкажіть назву команди.");
+    if (await call("POST", { action: "createTeam", name: teamName })) setTeamName("");
+  }
+
+  const canManage = (m: TeamMember) => m.id !== myId && m.role !== "admin" && (!lead || m.role === "manager");
 
   return (
     <div>
       <PageHeader
-        title="Команда і ліцензії"
-        description="Кожна людина займає одне робоче місце. Кількість місць задає адміністратор сервісу. Менеджери шукають лоти й формують звіти, технічний спеціаліст СТО перевіряє звіти й навчає модель. Усі працюють з одним залишком аналізів."
+        title={lead ? `Моя команда${me.status === "ready" && me.user?.teamName ? ` · ${me.user.teamName}` : ""}` : "Команди і люди"}
+        description={
+          lead
+            ? "Менеджери вашої команди: запрошуйте нових, вимикайте доступ. Їхні звіти бачите в «Звітах», а дії — в «Активності»."
+            : "Створюйте команди, призначайте керівників і менеджерів. Керівник бачить звіти й дії лише своєї команди."
+        }
       />
       {error && (
         <div className="mb-5">
@@ -80,50 +89,84 @@ export default function TeamPage() {
           </Notice>
         </div>
       )}
-
-      {seats && (
-        <section className="mb-5 grid grid-cols-2 gap-3 lg:grid-cols-4">
-          <div className="card p-4 sm:p-5">
-            <p className="text-xs font-bold uppercase tracking-wider text-muted">Місць за тарифом</p>
-            <p className="mt-1 font-display text-2xl font-semibold sm:text-3xl">{seats.total}</p>
-          </div>
-          <div className="card p-4 sm:p-5">
-            <p className="text-xs font-bold uppercase tracking-wider text-muted">Зайнято</p>
-            <p className="mt-1 font-display text-2xl font-semibold sm:text-3xl">{seats.active}</p>
-          </div>
-          <div className="card p-4 sm:p-5">
-            <p className="text-xs font-bold uppercase tracking-wider text-muted">Чекають запрошення</p>
-            <p className="mt-1 font-display text-2xl font-semibold sm:text-3xl">{seats.pending}</p>
-          </div>
-          <div className="card p-4 sm:p-5">
-            <p className={`text-xs font-bold uppercase tracking-wider ${full ? "text-warn" : "text-muted"}`}>Вільно</p>
-            <p className={`mt-1 font-display text-2xl font-semibold sm:text-3xl ${full ? "text-warn" : ""}`}>{seats.free}</p>
-          </div>
-        </section>
-      )}
-      {owner && full && (
+      {lead && data && !data.teamId && (
         <div className="mb-5">
-          <Notice tone="warn" title="Вільних місць немає">
-            Щоб додати людину, вимкніть доступ комусь із команди. Кількість робочих місць змінює лише адміністратор сервісу LotScope: зверніться до нього, якщо потрібно більше.
+          <Notice tone="warn" title="Вас ще не додали до команди">
+            Попросіть адміністратора компанії призначити вам команду.
           </Notice>
         </div>
       )}
 
-      {owner && (
+      {!lead && data && (
         <section className="card mb-5 p-5 sm:p-6">
-          <h2 className="text-lg font-extrabold">Запросити людину</h2>
-          <div className="mt-4 flex flex-wrap items-end gap-3">
-            <Segmented
-              className="w-full sm:w-80"
-              label="Роль"
-              value={role}
-              onChange={setRole}
-              options={[
-                { value: "manager", label: "Менеджер з пошуку" },
-                { value: "expert", label: "Технічний спеціаліст СТО" },
-              ]}
-            />
-            <Button onClick={invite} disabled={full}>
+          <h2 className="text-base font-semibold">Команди</h2>
+          <form noValidate onSubmit={createTeam} className="mt-3 flex flex-wrap gap-3">
+            <input className="control min-w-0 flex-1" aria-label="Назва нової команди" placeholder="Наприклад: Львів" value={teamName} onChange={(e) => setTeamName(e.target.value)} />
+            <Button type="submit" variant="secondary">
+              <Plus className="size-4" /> Створити команду
+            </Button>
+          </form>
+          {teams.length === 0 ? (
+            <p className="mt-4 text-sm text-muted">Команд ще немає. Створіть першу, потім запросіть у неї керівника й менеджерів.</p>
+          ) : (
+            <ul className="mt-4 divide-y divide-line rounded-xl border border-line">
+              {teams.map((t) => {
+                const people = data.members.filter((m) => m.team_id === t.id);
+                const leads = people.filter((m) => m.role === "lead");
+                return (
+                  <li key={t.id} className="flex flex-wrap items-center gap-3 px-4 py-3">
+                    <span className="grid size-9 place-items-center rounded-lg bg-panel2 text-muted">
+                      <Users className="size-4" />
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block font-semibold">{t.name}</span>
+                      <span className="block text-sm text-muted">
+                        Керівник: {leads.length ? leads.map((l) => l.name).join(", ") : "не призначено"} · менеджерів: {people.filter((m) => m.role === "manager").length}
+                      </span>
+                    </span>
+                    <button
+                      type="button"
+                      aria-label={`Видалити команду ${t.name}`}
+                      onClick={async () =>
+                        (await confirmDialog({ title: `Видалити команду «${t.name}»?`, message: "Люди залишаться в компанії без команди, їхні звіти збережуться.", confirmLabel: "Видалити команду", tone: "danger" })) &&
+                        call("DELETE", { teamId: t.id })
+                      }
+                      className="grid size-9 place-items-center rounded-lg text-muted hover:bg-bad-bg hover:text-bad"
+                    >
+                      <Trash2 className="size-4" />
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </section>
+      )}
+
+      {data && (!lead || data.teamId) && (
+        <section className="card mb-5 p-5 sm:p-6">
+          <h2 className="text-base font-semibold">{lead ? "Запросити менеджера" : "Запросити людину"}</h2>
+          <div className="mt-3 flex flex-wrap items-end gap-3">
+            {!lead && (
+              <>
+                <label className="w-full sm:w-60">
+                  <span className="mb-1.5 block text-[13px] font-medium text-ink">Роль</span>
+                  <Select<InviteRole> value={role} onChange={setRole} options={ROLE_OPTIONS} />
+                </label>
+                {role !== "expert" && (
+                  <label className="w-full sm:w-60">
+                    <span className="mb-1.5 block text-[13px] font-medium text-ink">Команда{role === "lead" ? "" : " (за бажанням)"}</span>
+                    <Select
+                      value={inviteTeam}
+                      onChange={setInviteTeam}
+                      invalid={role === "lead" && !inviteTeam && error.includes("команду")}
+                      options={[{ value: "", label: role === "lead" ? "Оберіть команду" : "Без команди" }, ...teams.map((t) => ({ value: t.id, label: t.name }))]}
+                    />
+                  </label>
+                )}
+              </>
+            )}
+            <Button onClick={invite}>
               <Link2 className="size-4" /> Створити посилання
             </Button>
           </div>
@@ -139,101 +182,113 @@ export default function TeamPage() {
               >
                 <Copy className="size-4" /> {copied ? "Скопійовано" : "Копіювати"}
               </Button>
-              <p className="w-full text-xs text-muted">
-                Посилання одноразове і діє 7 днів. Людина може зареєструватися паролем або через Google. Поки посилання не використане, воно резервує місце.
-              </p>
+              <p className="w-full text-xs text-muted">Посилання одноразове і діє 7 днів. Людина зареєструється паролем або через Google і одразу потрапить у потрібну команду.</p>
             </div>
+          )}
+          {data.invites.length > 0 && (
+            <p className="mt-4 flex flex-wrap items-center gap-3 text-sm text-muted">
+              Відкритих запрошень: {data.invites.length}
+              <button type="button" onClick={() => call("DELETE", { invite: true })} className="font-semibold text-bad hover:underline">
+                Скасувати всі
+              </button>
+            </p>
           )}
         </section>
       )}
 
-      {owner && team && (
-        <section className="card mb-5 p-5 sm:p-6">
-          <h2 className="text-lg font-extrabold">Назва компанії</h2>
-          <form noValidate
-            className="mt-3 flex flex-wrap gap-3"
-            onSubmit={(e) => {
-              e.preventDefault();
-              void act("PATCH", { companyName });
-            }}
-          >
-            <input className="control min-w-0 flex-1" aria-label="Назва компанії" value={companyName} onChange={(e) => setCompanyName(e.target.value)} />
-            <Button type="submit" variant="secondary" disabled={!companyName.trim() || companyName.trim() === team.companyName}>
-              Зберегти
-            </Button>
-          </form>
-        </section>
-      )}
-
       <section className="card overflow-hidden">
+        <header className="border-b border-line px-5 py-4">
+          <h2 className="text-base font-semibold">Люди · {data?.members.length ?? 0}</h2>
+        </header>
         <ul>
-          {team?.members.map((m) => (
-            <li key={m.id} className={`flex flex-wrap items-center gap-3 border-b border-line p-4 last:border-b-0 sm:px-6 ${m.active ? "" : "bg-panel2/50"}`}>
-              <span className="grid size-10 place-items-center rounded-full bg-panel2 font-extrabold ring-1 ring-line2">{m.name.charAt(0).toUpperCase()}</span>
+          {data?.members.map((m) => (
+            <li key={m.id} className={`flex flex-wrap items-center gap-3 border-b border-line px-5 py-3.5 last:border-b-0 ${m.active ? "" : "bg-panel2/50"}`}>
+              <span className="grid size-9 place-items-center rounded-full bg-panel2 text-sm font-semibold ring-1 ring-line">{m.name.charAt(0).toUpperCase()}</span>
               <span className="min-w-0 flex-1">
-                <span className={`block font-bold ${m.active ? "" : "text-muted line-through decoration-1"}`}>{m.name}</span>
+                <span className={`block font-semibold ${m.active ? "" : "text-muted"}`}>{m.name}</span>
                 <span className="block truncate text-sm text-muted">
                   {m.email}
                   {m.google && " · Google"}
                 </span>
               </span>
               <span className="text-right text-xs text-muted">
-                <span className="block text-base font-extrabold tabular-nums text-ink">{m.analyses}</span>
-                лотів за місяць
+                <span className="block text-base font-semibold tabular-nums text-ink">{m.analyses}</span>
+                аналізів за місяць
               </span>
-              {!m.active && <span className="rounded-full bg-warn-bg px-3 py-1 text-xs font-bold text-warn">Доступ вимкнено</span>}
-              {owner && m.role === "manager" || m.role === "expert" ? (
+              {!m.active && <span className="rounded-full bg-warn-bg px-3 py-1 text-xs font-medium text-warn">Доступ вимкнено</span>}
+              {!lead && canManage(m) ? (
                 <>
-                  <select
-                    className="control !min-h-9 !w-auto !py-1"
-                    aria-label={`Роль: ${m.name}`}
+                  <Select
+                    size="sm"
+                    className="w-48"
+                    label={`Роль: ${m.name}`}
                     value={m.role}
-                    onChange={(e) => act("PATCH", { id: m.id, role: e.target.value })}
-                  >
-                    <option value="manager">Менеджер з пошуку</option>
-                    <option value="expert">Технічний спеціаліст СТО</option>
-                  </select>
+                    onChange={(v) => call("PATCH", { id: m.id, role: v })}
+                    options={ROLE_OPTIONS}
+                  />
+                  <Select
+                    size="sm"
+                    className="w-40"
+                    label={`Команда: ${m.name}`}
+                    value={m.team_id ?? ""}
+                    onChange={(v) => call("PATCH", { id: m.id, teamId: v || null })}
+                    options={[{ value: "", label: "Без команди" }, ...teams.map((t) => ({ value: t.id, label: t.name }))]}
+                  />
+                </>
+              ) : (
+                <span className="rounded-full bg-panel2 px-3 py-1 text-xs font-medium">
+                  {ROLE_LABEL[m.role]}
+                  {!lead && m.team_id ? ` · ${teamName_(m.team_id)}` : ""}
+                </span>
+              )}
+              {canManage(m) && (
+                <>
                   <button
                     type="button"
                     aria-label={m.active ? `Вимкнути доступ: ${m.name}` : `Увімкнути доступ: ${m.name}`}
                     aria-pressed={m.active}
                     onClick={async () =>
                       m.active
-                        ? (await confirmDialog({ title: `Вимкнути доступ для ${m.name}?`, message: "Людина одразу вийде з акаунта, а місце в команді звільниться. Доступ можна повернути пізніше.", confirmLabel: "Вимкнути доступ", tone: "danger" })) && act("PATCH", { id: m.id, active: false })
-                        : act("PATCH", { id: m.id, active: true })
+                        ? (await confirmDialog({ title: `Вимкнути доступ для ${m.name}?`, message: "Людина одразу вийде з акаунта. Доступ можна повернути пізніше.", confirmLabel: "Вимкнути доступ", tone: "danger" })) && call("PATCH", { id: m.id, active: false })
+                        : call("PATCH", { id: m.id, active: true })
                     }
-                    className={`inline-flex h-9 items-center gap-1.5 rounded-full border px-3.5 text-xs font-extrabold ${
-                      m.active ? "border-good bg-good-bg text-good" : "border-line2 text-muted"
-                    }`}
+                    className={`inline-flex h-9 items-center gap-1.5 rounded-full border px-3.5 text-xs font-semibold ${m.active ? "border-good bg-good-bg text-good" : "border-line2 text-muted"}`}
                   >
-                    <Power className="size-3.5" /> {m.active ? "Ліцензія активна" : "Видати ліцензію"}
+                    <Power className="size-3.5" /> {m.active ? "Активний" : "Увімкнути"}
                   </button>
                   <button
                     type="button"
                     aria-label={`Видалити ${m.name}`}
-                    onClick={async () => (await confirmDialog({ title: `Видалити ${m.name} з команди?`, message: "Людина втратить доступ до компанії, а її місце звільниться.", confirmLabel: "Видалити", tone: "danger" })) && act("DELETE", { id: m.id })}
+                    onClick={async () => (await confirmDialog({ title: `Видалити ${m.name}?`, message: "Профіль буде видалено, людина втратить доступ. Її звіти залишаться в компанії.", confirmLabel: "Видалити", tone: "danger" })) && call("DELETE", { id: m.id })}
                     className="grid size-9 place-items-center rounded-full text-muted hover:bg-bad-bg hover:text-bad"
                   >
                     <Trash2 className="size-4" />
                   </button>
                 </>
-              ) : (
-                <span className="rounded-full bg-panel2 px-3 py-1 text-xs font-bold">{ROLE_LABEL[m.role]}</span>
               )}
             </li>
           ))}
         </ul>
-        {team && team.invites.length > 0 && (
-          <p className="flex flex-wrap items-center gap-3 border-t border-line px-6 py-3 text-sm text-muted">
-            Відкритих запрошень: {team.invites.length}
-            {owner && (
-              <button type="button" onClick={() => act("DELETE", { invite: true })} className="font-bold text-bad hover:underline">
-                Скасувати всі
-              </button>
-            )}
-          </p>
-        )}
       </section>
+
+      {!lead && data && (
+        <section className="card mt-5 p-5 sm:p-6">
+          <h2 className="text-base font-semibold">Назва компанії</h2>
+          <form
+            noValidate
+            className="mt-3 flex flex-wrap gap-3"
+            onSubmit={(e) => {
+              e.preventDefault();
+              void call("PATCH", { companyName });
+            }}
+          >
+            <input className="control min-w-0 flex-1" aria-label="Назва компанії" value={companyName} onChange={(e) => setCompanyName(e.target.value)} />
+            <Button type="submit" variant="secondary" disabled={!companyName.trim() || companyName.trim() === data.companyName}>
+              Зберегти
+            </Button>
+          </form>
+        </section>
+      )}
     </div>
   );
 }

@@ -1,20 +1,21 @@
-import { audit } from "@/lib/audit";
-import { requireUser } from "@/lib/auth";
-import { query } from "@/lib/db";
-import { DEFAULT_SETTINGS } from "@/lib/defaults";
-import { fail } from "@/lib/server";
+import { audit } from "@/lib/server/audit";
+import { requireUser } from "@/lib/server/auth";
+import { query } from "@/lib/server/db";
+import { DEFAULT_SETTINGS } from "@/lib/shared/defaults";
+import { fail } from "@/lib/server/http";
+import { route } from "@/lib/server/route";
 
 const LOCAL_ONLY = ["theme", "expertName"];
 const MAX_SETTINGS_CHARS = 1_500_000;
 
-export async function GET() {
+async function handleGET() {
   const user = await requireUser();
   if (user instanceof Response) return user;
   const rows = await query<{ settings: Record<string, unknown> }>("select settings from companies where id = $1", [user.companyId]);
   return Response.json({ settings: rows[0]?.settings ?? {} });
 }
 
-export async function PUT(request: Request) {
+async function handlePUT(request: Request) {
   const user = await requireUser("settings");
   if (user instanceof Response) return user;
   const raw = await request.text();
@@ -35,3 +36,6 @@ export async function PUT(request: Request) {
   await audit(user, "settings");
   return Response.json({ ok: true });
 }
+
+export const GET = route(handleGET);
+export const PUT = route(handlePUT);

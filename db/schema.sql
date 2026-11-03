@@ -100,10 +100,10 @@ alter table companies add column if not exists settings jsonb not null default '
 
 alter table users drop constraint if exists users_role_check;
 update users set role = 'admin' where role = 'owner';
-alter table users add constraint users_role_check check (role in ('admin', 'manager', 'expert', 'user'));
+alter table users add constraint users_role_check check (role in ('admin', 'lead', 'manager', 'expert', 'user'));
 
 alter table invites drop constraint if exists invites_role_check;
-alter table invites add constraint invites_role_check check (role in ('admin', 'manager', 'expert'));
+alter table invites add constraint invites_role_check check (role in ('admin', 'lead', 'manager', 'expert'));
 
 create table if not exists reports (
   id text primary key,
@@ -138,3 +138,29 @@ create table if not exists audit_log (
 create index if not exists audit_company on audit_log(company_id, created_at desc);
 create index if not exists audit_user on audit_log(user_id, created_at desc);
 create index if not exists audit_time on audit_log(created_at desc);
+
+create table if not exists market_cache (
+  key text primary key,
+  data jsonb not null,
+  created_at timestamptz not null default now()
+);
+
+create table if not exists password_resets (
+  token_hash text primary key,
+  user_id text not null references users(id) on delete cascade,
+  expires_at timestamptz not null,
+  used_at timestamptz,
+  created_at timestamptz not null default now()
+);
+create index if not exists password_resets_user on password_resets(user_id);
+
+create table if not exists teams (
+  id text primary key,
+  company_id text not null references companies(id) on delete cascade,
+  name text not null,
+  created_at timestamptz not null default now()
+);
+create index if not exists teams_company on teams(company_id);
+alter table users add column if not exists team_id text references teams(id) on delete set null;
+alter table invites add column if not exists team_id text references teams(id) on delete cascade;
+create index if not exists users_team on users(team_id);

@@ -13,11 +13,15 @@ if (!key) {
 console.log(`Ключ знайдено (${key.length} символів, починається з ${key.slice(0, 4)}…). Сервіс: ${base}\n`);
 
 const checks = [
+  ["/api/v2/get-auctions", {}],
   ["/api/v2/get-cars", { make: "BMW", page: 1, per_page: 2 }],
-  ["/api/v2/get-active-lots", { page: 1, per_page: 2 }],
+  ...["COPART", "IAAI", "COPART CANADA", "COPART FINLAND", "EMIRATES AUCTION"].map((name) => ["/api/v2/get-active-lots", { "auction_names[]": name, page: 1, per_page: 1 }]),
 ];
 const only = process.argv[2];
-if (only) checks.push(only.length === 17 ? ["/api/v1/get-car-vin", { vin_number: only }] : ["/api/v1/get-car-lot", { lot_number: only }]);
+if (only) {
+  if (only.length === 17) checks.push(["/api/v1/get-car-vin", { vin_number: only }], ["/api/v2/vin-decoding", { vin: only }]);
+  else checks.push(["/api/v1/get-car-lot", { lot_number: only }]);
+}
 
 for (const [route, params] of checks) {
   const url = new URL(base + route);

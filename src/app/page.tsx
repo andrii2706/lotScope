@@ -1,95 +1,45 @@
 "use client";
 
-import { Combobox } from "@/components/Combobox";
-import { MAKES, modelsFor } from "@/lib/cars";
-import {
-  ArrowRight,
-  Check,
-  ChevronDown,
-  CircleDollarSign,
-  FileText,
-  Gavel,
-  ScanSearch,
-  Sparkles,
-  Wrench,
-} from "lucide-react";
+import { AUCTIONS, AUCTION_NAMES, isEuPlant, regionOf } from "@/lib/shared/auctions";
+import { Combobox } from "@/components/ui/Combobox";
+import { MAKES, modelsFor } from "@/lib/shared/cars";
+import { ArrowRight, Check, ChevronDown } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { HistoryUploader } from "@/components/HistoryUploader";
-import { LotFinder } from "@/components/LotFinder";
-import { PhotoUploader } from "@/components/PhotoUploader";
-import { VinHistoryPanel } from "@/components/VinHistoryPanel";
-import { useVinHistory } from "@/lib/useVinHistory";
-import { Button, Field, Notice, NumberInput, PageHeader, Segmented, StepCard } from "@/components/ui";
-import type { Comparables, LotLookupResponse } from "@/lib/auction";
-import { EMPTY_LOT, MAX_PHOTOS } from "@/lib/defaults";
-import { preparePhoto, type PreparedPhoto } from "@/lib/images";
-import { useLessons } from "@/lib/lessonsClient";
-import { refreshMe, useMe } from "@/lib/me";
-import Link from "next/link";
-import { can } from "@/lib/roles";
-import { getSettings, saveReport } from "@/lib/store";
-import type { AnalyzeRequest, AnalyzeResponse, HistoryFile, LotInput, Report } from "@/lib/types";
-
-interface ServerStatus {
-  configured: boolean;
-}
-
-const STORED_PHOTOS = 8;
-
-const DAMAGE_OPTIONS = [
-  "Front End",
-  "Rear End",
-  "Left Side",
-  "Right Side",
-  "Left Front",
-  "Right Front",
-  "Left Rear",
-  "Right Rear",
-  "All Over",
-  "Rollover",
-  "Undercarriage",
-  "Mechanical",
-  "Water/Flood",
-  "Hail",
-  "Vandalism",
-  "Minor Dent/Scratches",
-];
-const TITLE_OPTIONS = ["Salvage", "Clean", "Rebuilt", "Certificate of Destruction", "Parts Only"];
-
-const LOADING_STAGES = [
-  "Розглядаю фото лота…",
-  "Шукаю пошкодження та ризики…",
-  "Оцінюю вартість ремонту…",
-  "Рахую розмитнення та ціну під ключ…",
-];
-
-const OUTCOMES = [
-  { icon: ScanSearch, text: "Пошкодження та ризики за фото" },
-  { icon: Wrench, text: "Вилка вартості ремонту" },
-  { icon: CircleDollarSign, text: "Ціна під ключ з розмитненням" },
-  { icon: Gavel, text: "Максимальна ставка" },
-  { icon: FileText, text: "PDF-звіт з вашим логотипом" },
-];
-
-const MAX_REQUEST_CHARS = 4_300_000;
+import { HistoryUploader } from "@/components/analysis/HistoryUploader";
+import { LotFinder } from "@/components/analysis/LotFinder";
+import { MarketPrice } from "@/components/analysis/MarketPrice";
+import { VinDecodeButton } from "@/components/analysis/VinDecodeButton";
+import { PhotoUploader } from "@/components/analysis/PhotoUploader";
+import { VinHistoryPanel } from "@/components/analysis/VinHistoryPanel";
+import { useVinHistory } from "@/lib/client/useVinHistory";
+import { Button, Field, Notice, NumberInput, PageHeader, Segmented, Select, StepCard } from "@/components/ui";
+import { EMPTY_LOT, MAX_PHOTOS } from "@/lib/shared/defaults";
+import { preparePhoto } from "@/lib/client/images";
+import { useLessons } from "@/lib/client/lessons";
+import { refreshMe, useMe } from "@/lib/client/me";
+import { can } from "@/lib/shared/roles";
+import { getSettings, saveReport } from "@/lib/client/store";
+import { userMessage, responseMessage } from "@/lib/shared/errors";
+import type { Comparables, LotLookupResponse } from "@/types/auction";
+import type { AnalyzeRequest, AnalyzeResponse, HistoryFile, LotInput, Report, AnalyzeStatus } from "@/types/report";
+import type { PreparedPhoto } from "@/types/system";
+import { STORED_PHOTOS, DAMAGE_OPTIONS, TITLE_OPTIONS, LOADING_STAGES, OUTCOMES, MAX_REQUEST_CHARS } from "@/config/analysis";
 
 export default function NewAnalysisPage() {
   const router = useRouter();
   const [lot, setLot] = useState<LotInput>(EMPTY_LOT);
   const [photos, setPhotos] = useState<PreparedPhoto[]>([]);
-  const [status, setStatus] = useState<ServerStatus | null>(null);
+  const [status, setStatus] = useState<AnalyzeStatus | null>(null);
   const [loading, setLoading] = useState(false);
   const [stage, setStage] = useState(0);
   const [error, setError] = useState("");
   const [cardOpen, setCardOpen] = useState(false);
   const [history, setHistory] = useState<HistoryFile[]>([]);
   const [comparables, setComparables] = useState<Comparables | null>(null);
-  const [vinState, unlockVin] = useVinHistory(lot.vin);
+  const vinState = useVinHistory(lot.vin);
   const activeLessons = useLessons().filter((l) => l.active).length;
   const me = useMe();
-  const credits = me.status === "ready" && me.user ? me.user.credits : null;
-  const outOfCredits = Boolean(status?.configured) && credits === 0;
   const vinHistory = vinState.status === "done" ? vinState.response.history : null;
   const historyDone = history.length > 0 || Boolean(vinHistory);
 
@@ -97,7 +47,7 @@ export default function NewAnalysisPage() {
     let active = true;
     fetch("/api/analyze")
       .then((r) => r.json())
-      .then((s: ServerStatus) => active && setStatus(s))
+      .then((s: AnalyzeStatus) => active && setStatus(s))
       .catch(() => {});
     return () => {
       active = false;
@@ -191,7 +141,7 @@ export default function NewAnalysisPage() {
         | (AnalyzeResponse & { error?: string })
         | null;
       if (!res.ok || !data || data.error) {
-        throw new Error(data?.error || "Не вдалося виконати аналіз. Спробуйте ще раз.");
+        throw new Error(responseMessage("/api/analyze", res.status, data, "Не вдалося виконати аналіз. Спробуйте ще раз."));
       }
       const report: Report = {
         id: `tmp-${crypto.randomUUID().slice(0, 8)}`,
@@ -222,7 +172,7 @@ export default function NewAnalysisPage() {
       router.push(`/report/${saved.id}${notSaved ? "?unsaved=1" : ""}`);
     } catch (e) {
       setError(
-        e instanceof Error ? e.message : "Сталася помилка.",
+        userMessage(e, "Аналіз не вдався. Спробуйте ще раз."),
       );
       setLoading(false);
     }
@@ -239,25 +189,15 @@ export default function NewAnalysisPage() {
   return (
     <div className="pb-24 lg:pb-0">
       <PageHeader
-        eyebrow={
-          <>
-            <Sparkles className="size-3.5" /> ШІ-оцінка лотів IAAI та Copart
-          </>
-        }
-        title={
-          <>
-            Оцініть лот <span className="text-accent-text">за хвилину</span>
-          </>
-        }
-        description="Додайте фото з аукціону та кілька даних про авто. Отримаєте розбір пошкоджень, вилку ремонту, ціну під ключ і максимальну ставку."
+        title="Новий аналіз"
+        description="Знайдіть лот або додайте фото й дані вручну. Отримаєте розбір пошкоджень, вилку ремонту, ціну під ключ і максимальну ставку."
       />
 
       {status && !status.configured && (
         <div className="mb-6">
           <Notice tone="warn" title="Демо-режим">
-            Ключ API не налаштовано, тому замість аналізу ваших фото звіт покаже заздалегідь
-            підготовлений приклад. Розрахунок розмитнення та ціни під ключ працює повністю. Щоб
-            увімкнути аналіз, додайте ANTHROPIC_API_KEY у файл .env.local.
+            Аналіз фото зараз не підключений, тому звіт покаже заздалегідь підготовлений приклад
+            замість розбору ваших фото. Розрахунок розмитнення та ціни під ключ працює повністю.
           </Notice>
         </div>
       )}
@@ -350,9 +290,32 @@ export default function NewAnalysisPage() {
               <Field label="Очікувана ставка на аукціоні">
                 <NumberInput large value={lot.bidUsd} onChange={(v) => set("bidUsd", v)} suffix="$" />
               </Field>
-              <Field label="Ціна такого авто в Україні">
-                <NumberInput large value={lot.marketPriceUsd} onChange={(v) => set("marketPriceUsd", v)} suffix="$" />
+              <Field label="Ціна такого авто в Україні" hint={lot.marketSource ? "з AUTO.RIA" : undefined}>
+                <NumberInput
+                  large
+                  value={lot.marketPriceUsd}
+                  onChange={(v) => setLot((prev) => ({ ...prev, marketPriceUsd: v, marketSource: "" }))}
+                  suffix="$"
+                />
               </Field>
+              <MarketPrice lot={lot} onPrice={(v, source) => setLot((prev) => ({ ...prev, marketPriceUsd: v, marketSource: source }))} />
+              {regionOf(lot.auction) === "eu" && (
+                <label className="flex items-start gap-3 rounded-xl border border-line2 p-3.5 sm:col-span-2">
+                  <input
+                    type="checkbox"
+                    className="mt-0.5 size-4.5 accent-[var(--accent)]"
+                    checked={lot.eur1 === true}
+                    onChange={(e) => set("eur1", e.target.checked)}
+                  />
+                  <span className="text-sm">
+                    <span className="block font-bold">Авто виготовлене в ЄС, продавець дасть EUR.1</span>
+                    <span className="block text-xs text-muted">
+                      Тоді мито 0 % замість 10 %. Важлива країна заводу, а не країна аукціону: японська чи американська збірка
+                      преференції не має.{lot.plantCountry ? ` Завод за VIN: ${lot.plantCountry}${isEuPlant(lot.plantCountry) ? " (ЄС)" : " (не ЄС)"}.` : ""}
+                    </span>
+                  </span>
+                </label>
+              )}
             </div>
           </StepCard>
 
@@ -378,17 +341,9 @@ export default function NewAnalysisPage() {
               </button>
             ) : (
               <div className="grid grid-cols-2 gap-x-3 gap-y-4 sm:grid-cols-6">
-                <Segmented
-                  className="col-span-2 sm:col-span-3"
-                  label="Аукціон"
-                  value={lot.auction}
-                  onChange={(v) => set("auction", v)}
-                  options={[
-                    { value: "IAAI", label: "IAAI" },
-                    { value: "Copart", label: "Copart" },
-                    { value: "Other", label: "Інший" },
-                  ]}
-                />
+                <Field label="Аукціон" className="col-span-2 sm:col-span-3">
+                  <Select<LotInput["auction"]> value={lot.auction} onChange={(v) => set("auction", v)} options={AUCTION_NAMES.map((a) => ({ value: a, label: AUCTIONS[a].label }))} />
+                </Field>
                 <Field label="Номер лота" className="col-span-2 sm:col-span-3">
                   <input
                     className="control"
@@ -404,45 +359,31 @@ export default function NewAnalysisPage() {
                     value={lot.vin}
                     onChange={(e) => set("vin", e.target.value.toUpperCase())}
                   />
+                  <VinDecodeButton
+                    vin={lot.vin}
+                    onDecoded={(d) =>
+                      setLot((prev) => ({
+                        ...prev,
+                        make: prev.make || d.make,
+                        model: prev.model || d.model,
+                        year: d.year || prev.year,
+                        engineCc: d.engineCc || prev.engineCc,
+                        fuel: d.fuel ?? prev.fuel,
+                        plantCountry: d.plantCountry || prev.plantCountry,
+                      }))
+                    }
+                  />
                 </Field>
                 <Field label="Документ" className="col-span-2 sm:col-span-3">
-                  <input
-                    className="control"
-                    list="title-options"
-                    placeholder="наприклад, Salvage"
-                    value={lot.titleType}
-                    onChange={(e) => set("titleType", e.target.value)}
-                  />
-                  <datalist id="title-options">
-                    {TITLE_OPTIONS.map((t) => (
-                      <option key={t} value={t} />
-                    ))}
-                  </datalist>
+                  <Combobox minChars={0} options={TITLE_OPTIONS} placeholder="наприклад, Salvage" value={lot.titleType} onChange={(v) => set("titleType", v)} />
                 </Field>
 
                 <Field label="Primary Damage" className="col-span-2 sm:col-span-3">
-                  <input
-                    className="control"
-                    list="damage-options"
-                    placeholder="наприклад, Left Side"
-                    value={lot.primaryDamage}
-                    onChange={(e) => set("primaryDamage", e.target.value)}
-                  />
+                  <Combobox minChars={0} options={DAMAGE_OPTIONS} placeholder="наприклад, Left Side" value={lot.primaryDamage} onChange={(v) => set("primaryDamage", v)} />
                 </Field>
                 <Field label="Secondary Damage" className="col-span-2 sm:col-span-3">
-                  <input
-                    className="control"
-                    list="damage-options"
-                    placeholder="якщо вказано"
-                    value={lot.secondaryDamage}
-                    onChange={(e) => set("secondaryDamage", e.target.value)}
-                  />
+                  <Combobox minChars={0} options={DAMAGE_OPTIONS} placeholder="якщо вказано" value={lot.secondaryDamage} onChange={(v) => set("secondaryDamage", v)} />
                 </Field>
-                <datalist id="damage-options">
-                  {DAMAGE_OPTIONS.map((d) => (
-                    <option key={d} value={d} />
-                  ))}
-                </datalist>
 
                 <Segmented
                   className="col-span-2 sm:col-span-6"
@@ -488,25 +429,31 @@ export default function NewAnalysisPage() {
             done={historyDone}
             badge="optional"
           >
-            <VinHistoryPanel state={vinState} onUnlock={unlockVin} />
+            <VinHistoryPanel state={vinState} />
             <div className="mt-5 border-t border-line pt-5">
-              <p className="mb-3 text-sm font-extrabold">Звіт Carfax чи AutoCheck</p>
+              <p className="mb-3 text-sm font-semibold">Звіт Carfax чи AutoCheck</p>
               <HistoryUploader files={history} onChange={setHistory} disabled={loading} />
             </div>
           </StepCard>
         </div>
 
-        <aside className="space-y-4 lg:sticky lg:top-24 lg:self-start">
+        <aside className="space-y-4 lg:sticky lg:top-8 lg:self-start">
           <div className="card rise p-5">
-            <p className="text-xs font-bold uppercase tracking-wider text-muted">Готовність</p>
-            <p className="mt-1 text-lg font-extrabold leading-tight tracking-tight">{hint}</p>
+            <p className="text-[13px] font-medium text-muted">Готовність</p>
+            <p className="mt-1 text-base font-semibold leading-tight">{hint}</p>
+            <div aria-hidden className="mt-3 h-1.5 overflow-hidden rounded-full bg-panel2">
+              <span
+                className="block h-full rounded-full bg-good transition-all"
+                style={{ width: `${(checklist.filter((c) => c.done).length / Math.max(1, checklist.length)) * 100}%` }}
+              />
+            </div>
 
             <ul className="mt-4 space-y-1">
               {checklist.map((item) => (
                 <li key={item.label}>
                   <a
                     href={item.href}
-                    className="flex items-center gap-3 rounded-xl px-2 py-2 transition hover:bg-panel2"
+                    className="flex items-center gap-3 rounded-lg px-2 py-2 transition hover:bg-panel2"
                   >
                     <span
                       aria-hidden
@@ -521,7 +468,7 @@ export default function NewAnalysisPage() {
                       {item.done && <Check className="size-3.5" strokeWidth={3.5} />}
                     </span>
                     <span className="min-w-0 flex-1">
-                      <span className="block text-sm font-bold leading-tight">
+                      <span className="block text-sm font-medium leading-tight">
                         {item.label}
                         {!item.required && !item.done && (
                           <span className="ml-1.5 text-xs font-semibold text-faint">за бажанням</span>
@@ -542,31 +489,20 @@ export default function NewAnalysisPage() {
               </div>
             )}
 
-            <Button size="lg" className="mt-4 hidden w-full lg:inline-flex" disabled={!ready || loading || outOfCredits} onClick={submit}>
+            <Button size="lg" className="mt-4 hidden w-full lg:inline-flex" disabled={!ready || loading} onClick={submit}>
               Проаналізувати лот <ArrowRight className="size-5" />
             </Button>
-            {credits !== null && status?.configured && (
-              <p className={`mt-2.5 text-center text-xs ${outOfCredits ? "font-bold text-bad" : "text-muted"}`}>
-                {outOfCredits ? (
-                  <>
-                    Аналізи закінчились. <Link href="/billing" className="underline">Поповнити</Link>
-                  </>
-                ) : (
-                  <>Залишок аналізів: {credits}</>
-                )}
-              </p>
-            )}
             {activeLessons > 0 && (
               <p className="mt-2.5 text-center text-xs text-muted">Модель врахує уроків експерта СТО: {activeLessons}</p>
             )}
           </div>
 
-          <div className="rounded-[1.25rem] border border-line p-5">
-            <p className="text-xs font-bold uppercase tracking-wider text-muted">Що буде у звіті</p>
+          <div className="rounded-2xl border border-line p-5">
+            <p className="text-[13px] font-medium text-muted">Що буде у звіті</p>
             <ul className="mt-3 space-y-2.5">
               {OUTCOMES.map(({ icon: Icon, text }) => (
-                <li key={text} className="flex items-center gap-2.5 text-sm font-semibold">
-                  <span className="grid size-7 shrink-0 place-items-center rounded-lg bg-panel2 text-accent-text ring-1 ring-line2">
+                <li key={text} className="flex items-center gap-2.5 text-sm font-medium">
+                  <span className="grid size-7 shrink-0 place-items-center rounded-lg bg-panel2 text-muted">
                     <Icon className="size-4" strokeWidth={2.2} />
                   </span>
                   {text}
@@ -577,8 +513,8 @@ export default function NewAnalysisPage() {
         </aside>
       </div>
 
-      <div className="no-print fixed inset-x-0 bottom-0 z-20 border-t border-line bg-paper/90 px-4 py-3 backdrop-blur-xl lg:hidden">
-        <Button size="lg" className="w-full" disabled={!ready || loading || outOfCredits} onClick={submit}>
+      <div className="no-print fixed inset-x-0 bottom-0 z-20 border-t border-line bg-surface/95 px-4 py-3 backdrop-blur-xl lg:hidden">
+        <Button size="lg" className="w-full" disabled={!ready || loading} onClick={submit}>
           {ready ? "Проаналізувати лот" : hint} {ready && <ArrowRight className="size-5" />}
         </Button>
       </div>
@@ -590,8 +526,8 @@ export default function NewAnalysisPage() {
           aria-label="Триває аналіз"
           className="fixed inset-0 z-50 grid place-items-center bg-black/70 p-4 backdrop-blur-sm"
         >
-          <div className="rise w-full max-w-sm rounded-3xl border border-line2 bg-surface p-7 text-center shadow-pop">
-            <div className="relative mx-auto mb-5 aspect-[4/3] w-40 overflow-hidden rounded-2xl border border-line2 bg-paper">
+          <div className="rise w-full max-w-sm rounded-2xl border border-line2 bg-surface p-7 text-center shadow-pop">
+            <div className="relative mx-auto mb-5 aspect-[4/3] w-40 overflow-hidden rounded-xl border border-line2 bg-paper">
               {photos[0] && (
                 <img src={photos[0].thumb} alt="" className="size-full object-cover" />
               )}
@@ -603,7 +539,7 @@ export default function NewAnalysisPage() {
                 <span className="block h-1 w-full bg-accent shadow-[0_0_18px_4px_var(--accent)]" />
               </span>
             </div>
-            <p className="text-lg font-extrabold tracking-tight">Аналізую лот</p>
+            <p className="text-lg font-semibold tracking-tight">Аналізую лот</p>
             <p className="mt-1 min-h-5 text-sm font-semibold text-accent-text">{LOADING_STAGES[stage]}</p>
             <p className="mt-3 text-xs text-muted">Зазвичай це триває до хвилини. Не закривайте сторінку.</p>
           </div>

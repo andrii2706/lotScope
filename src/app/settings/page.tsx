@@ -1,28 +1,16 @@
 "use client";
 
-import { confirmDialog } from "@/components/ConfirmDialog";
+import { confirmDialog, Button, Card, Field, NumberInput, PageHeader, Segmented } from "@/components/ui";
 import { CircleCheck, Landmark, Palette, RotateCcw, Truck, Upload, Wrench } from "lucide-react";
 import { useRef, useState, type CSSProperties } from "react";
-import { Button, Card, Field, NumberInput, PageHeader, Segmented } from "@/components/ui";
-import { accentInk, accentText } from "@/lib/color";
-import { DEFAULT_SETTINGS } from "@/lib/defaults";
-import { fileToLogo } from "@/lib/images";
-import { saveSettings, useHydrated, useSettings } from "@/lib/store";
-import { useResolvedTheme } from "@/lib/theme";
-import type { Settings } from "@/lib/types";
-
-type NumericKey = {
-  [K in keyof Settings]: Settings[K] extends number ? K : never;
-}[keyof Settings];
-
-const SECTIONS = [
-  { id: "brand", label: "Бренд у звіті", icon: Palette },
-  { id: "logistics", label: "Логістика та послуги", icon: Truck },
-  { id: "repair", label: "Ремонт", icon: Wrench },
-  { id: "customs", label: "Курси та розмитнення", icon: Landmark },
-];
-
-const ACCENTS = ["#c8f542", "#ffd60a", "#ff8a1f", "#ff5a4d", "#ff5fa2", "#8f7bff", "#38bdf8", "#34d399"];
+import { ACCENTS, REGION_ROWS, SETTINGS_SECTIONS } from "@/config/settings";
+import { accentInk, accentText } from "@/lib/shared/color";
+import { DEFAULT_SETTINGS } from "@/lib/shared/defaults";
+import { fileToLogo } from "@/lib/client/images";
+import { useRates } from "@/lib/client/rates";
+import { saveSettings, useHydrated, useSettings } from "@/lib/client/store";
+import { useResolvedTheme } from "@/lib/client/theme";
+import type { NumericSettingKey, Settings } from "@/types/report";
 
 export default function SettingsPage() {
   const hydrated = useHydrated();
@@ -30,11 +18,12 @@ export default function SettingsPage() {
   const theme = useResolvedTheme(settings.theme);
   const logoInput = useRef<HTMLInputElement>(null);
   const [logoError, setLogoError] = useState("");
+  const rates = useRates();
 
   const set = <K extends keyof Settings>(key: K, value: Settings[K]) =>
     saveSettings({ ...settings, [key]: value });
 
-  const money = (key: NumericKey, label: string, suffix = "$", hint?: string) => (
+  const money = (key: NumericSettingKey, label: string, suffix = "$", hint?: string) => (
     <Field label={label} hint={hint}>
       <NumberInput value={settings[key]} onChange={(v) => set(key, v)} suffix={suffix} step={0.01} />
     </Field>
@@ -56,8 +45,8 @@ export default function SettingsPage() {
 
       <div className="grid gap-6 lg:grid-cols-[14rem_minmax(0,1fr)]">
         <nav aria-label="Розділи налаштувань" className="hidden lg:block">
-          <ul className="sticky top-24 space-y-1">
-            {SECTIONS.map(({ id, label, icon: Icon }) => (
+          <ul className="sticky top-8 space-y-1">
+            {SETTINGS_SECTIONS.map(({ id, label, icon: Icon }) => (
               <li key={id}>
                 <a
                   href={`#${id}`}
@@ -78,7 +67,7 @@ export default function SettingsPage() {
             hint="Так клієнт побачить вашу компанію в шапці звіту."
           >
             <div
-              className="mb-5 flex items-center justify-between gap-4 rounded-2xl border border-line2 bg-paper p-4"
+              className="mb-5 flex items-center justify-between gap-4 rounded-xl border border-line2 bg-paper p-4"
               style={
                 {
                   "--accent": settings.accentColor,
@@ -92,12 +81,12 @@ export default function SettingsPage() {
                 {settings.logoDataUrl ? (
                   <img src={settings.logoDataUrl} alt="" className="h-11 w-auto max-w-32 object-contain" />
                 ) : (
-                  <span className="grid size-11 place-items-center rounded-xl bg-accent text-lg font-extrabold text-accent-ink">
+                  <span className="grid size-11 place-items-center rounded-xl bg-accent text-lg font-semibold text-accent-ink">
                     {(settings.companyName.trim().charAt(0) || "L").toUpperCase()}
                   </span>
                 )}
                 <div>
-                  <p className="text-base font-extrabold leading-tight">
+                  <p className="text-base font-semibold leading-tight">
                     {settings.companyName || "Назва вашої компанії"}
                   </p>
                   <p className="text-sm text-muted">{settings.companyContact || "телефон, сайт"}</p>
@@ -136,7 +125,7 @@ export default function SettingsPage() {
                 />
               </Field>
               <div>
-                <span className="mb-1.5 block text-[13px] font-bold text-ink/80">Логотип</span>
+                <span className="mb-1.5 block text-[13px] font-medium text-ink">Логотип</span>
                 <div className="flex items-center gap-2">
                   <Button variant="secondary" onClick={() => logoInput.current?.click()}>
                     <Upload className="size-4" /> {settings.logoDataUrl ? "Замінити" : "Завантажити"}
@@ -167,7 +156,7 @@ export default function SettingsPage() {
                 {logoError && <p className="mt-1.5 text-xs font-semibold text-bad">{logoError}</p>}
               </div>
               <div>
-                <span className="mb-1.5 block text-[13px] font-bold text-ink/80">Колір бренду</span>
+                <span className="mb-1.5 block text-[13px] font-medium text-ink">Колір бренду</span>
                 <div className="flex flex-wrap items-center gap-2" role="radiogroup" aria-label="Колір бренду">
                   {ACCENTS.map((color) => {
                     const active = settings.accentColor.toLowerCase() === color;
@@ -187,7 +176,7 @@ export default function SettingsPage() {
                     );
                   })}
                   <label
-                    className="relative grid size-7 cursor-pointer place-items-center rounded-full border border-dashed border-line2 text-xs font-extrabold text-muted hover:border-ink/60"
+                    className="relative grid size-7 cursor-pointer place-items-center rounded-full border border-dashed border-line2 text-xs font-semibold text-muted hover:border-ink/60"
                     title="Свій колір"
                   >
                     +
@@ -208,19 +197,67 @@ export default function SettingsPage() {
             id="logistics"
             icon={<Truck className="size-5" />}
             title="Логістика та послуги"
-            hint="Стартові суми — приклади. Замініть їх своїми; у кожному звіті їх можна виправити окремо."
+            hint="Стартові суми — орієнтовні ринкові ціни 2026 року для легкового авто через Клайпеду. Замініть їх тарифами вашого логіста; у кожному звіті їх можна виправити окремо."
           >
+            <Segmented
+              className="mb-4"
+              label="Збір аукціону"
+              value={settings.auctionFeeMode}
+              onChange={(v) => set("auctionFeeMode", v)}
+              options={[
+                { value: "table", label: "За сіткою Copart / IAAI" },
+                { value: "manual", label: "Свій відсоток" },
+              ]}
+            />
+            {settings.auctionFeeMode === "table" && (
+              <p className="mb-4 rounded-xl bg-panel2 px-3.5 py-3 text-xs leading-relaxed text-muted">
+                Рахується за ставкою з опублікованої сітки зборів: buyer fee, збір за онлайн-ставку, gate/service,
+                екологічний і титульний збори. Сітки аукціони змінюють, а брокер може додати свою комісію — вкажіть її
+                в «Послугах компанії».
+              </p>
+            )}
             <div className="grid grid-cols-2 gap-x-3 gap-y-4 sm:grid-cols-3">
-              {money("auctionFeePct", "Збір аукціону, частка", "%", "від ставки")}
-              {money("auctionFeeFixedUsd", "Збір аукціону, фікс.", "$", "додається до частки")}
+              {settings.auctionFeeMode === "manual" && money("auctionFeePct", "Збір аукціону, частка", "%", "від ставки")}
+              {settings.auctionFeeMode === "manual" && money("auctionFeeFixedUsd", "Збір аукціону, фікс.", "$", "додається до частки")}
               {money("inlandUsUsd", "Доставка до порту в США")}
               {money("oceanUsd", "Морська доставка")}
-              {money("portUaUsd", "Порт і експедирування")}
+              {money("portUaUsd", "Порт і експедирування", "$", "розвантаження в порту ЄС")}
               {money("customsBrokerUsd", "Митний брокер")}
-              {money("deliveryUaUsd", "Доставка по Україні")}
+              {money("deliveryUaUsd", "Доставка в Україну", "$", "автовоз з порту до міста")}
               {money("certificationUsd", "Сертифікація та реєстрація")}
               {money("companyFeeUsd", "Послуги компанії")}
               {money("firstServiceUsd", "Перше ТО")}
+            </div>
+            <p className="mt-6 text-sm font-semibold">Канада, Європа, ОАЕ</p>
+            <p className="mt-1 text-xs leading-relaxed text-muted">
+              Діють для лотів Copart Canada, Copart Finland та Emirates Auction; брокер, сертифікація, послуги й ТО — спільні.
+              Стартові суми грубі: Канада — за тарифом Meest 3 499 CAD «Торонто/Монреаль → Чорноморськ» (2025), ОАЕ — 1 800–2 500 $
+              за доставку (2026), для Європи свіжих даних немає. Замініть їх тарифами свого перевізника.
+            </p>
+            <div className="mt-3 overflow-x-auto">
+              <table className="w-full min-w-[34rem] text-sm">
+                <thead>
+                  <tr className="text-left text-xs font-bold text-muted">
+                    <th className="pb-2 pr-3 font-bold">Регіон</th>
+                    <th className="pb-2 pr-3 font-bold">До порту / майданчика</th>
+                    <th className="pb-2 pr-3 font-bold">Море / автовоз</th>
+                    <th className="pb-2 pr-3 font-bold">Порт, експорт</th>
+                    <th className="pb-2 font-bold">Доставка в Україні</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {REGION_ROWS.map((row) => (
+                    <tr key={row.label}>
+                      <td className="py-1.5 pr-3 font-bold">{row.label}</td>
+                      {row.keys.map((key) => (
+                        <td key={key} className="py-1.5 pr-3 last:pr-0">
+                          <NumberInput value={settings[key]} onChange={(v) => set(key, v)} suffix="$" />
+                        </td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           </Card>
 
@@ -233,6 +270,7 @@ export default function SettingsPage() {
             <div className="grid grid-cols-2 gap-x-3 gap-y-4">
               {money("laborRateUsd", "Нормо-година кузовних робіт")}
               {money("paintPerPanelUsd", "Фарбування одного елемента")}
+              {money("partsDeliveryPlUsd", "Доставка запчастини з Польщі", "$", "додається до цін з Allegro")}
               <Segmented
                 className="col-span-2"
                 label="Запчастини"
@@ -248,9 +286,26 @@ export default function SettingsPage() {
           </Card>
 
           <Card id="customs" icon={<Landmark className="size-5" />} title="Курси та розмитнення">
+            <label className="mb-4 flex items-start gap-3 rounded-xl border border-line2 p-3.5">
+              <input
+                type="checkbox"
+                className="mt-0.5 size-4.5 accent-[var(--accent)]"
+                checked={settings.autoRates}
+                onChange={(e) => set("autoRates", e.target.checked)}
+              />
+              <span className="text-sm">
+                <span className="block font-bold">Курси НБУ автоматично</span>
+                <span className="block text-xs text-muted">
+                  {rates
+                    ? `На ${rates.date}: 1 $ = ${rates.usdUah.toFixed(2)} грн, 1 € = ${rates.eurUah.toFixed(2)} грн${rates.plnUah ? `, 1 zł = ${rates.plnUah.toFixed(2)} грн` : ""}.`
+                    : "Курси НБУ зараз недоступні — діють ручні курси нижче."}
+                </span>
+              </span>
+            </label>
             <div className="grid grid-cols-2 gap-x-3 gap-y-4">
-              {money("eurUsd", "Курс євро", "$", "для акцизу")}
-              {money("usdUah", "Курс долара", "грн", "для пенсійного збору")}
+              {!settings.autoRates && money("eurUsd", "Курс євро", "$", "для акцизу")}
+              {!settings.autoRates && money("usdUah", "Курс долара", "грн", "для пенсійного збору")}
+              {!settings.autoRates && money("plnUsd", "Курс злотого", "$", "для цін запчастин з Allegro")}
               {money("subsistenceMinUah", "Прожитковий мінімум", "грн", "3328 грн з 01.01.2026")}
               {money("targetSavingsPct", "Цільова вигода клієнта", "%", "від ринку, для максимальної ставки")}
             </div>

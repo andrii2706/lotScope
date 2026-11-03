@@ -1,10 +1,10 @@
 import { cookies } from "next/headers";
-import { audit } from "@/lib/audit";
-import { createSession, homePath, newId, sha256 } from "@/lib/auth";
-import { dbConfigured, query, tx } from "@/lib/db";
-import { OAUTH_COOKIE, exchangeCode, googleConfig, redirectUri, safeNext, type GoogleProfile, type OAuthContext } from "@/lib/google";
-import { TRIAL_CREDITS } from "@/lib/plans";
-import { seatUsage } from "@/lib/seats";
+import { audit } from "@/lib/server/audit";
+import { createSession, homePath, isAdminEmail, newId, sha256 } from "@/lib/server/auth";
+import { dbConfigured, query, tx } from "@/lib/server/db";
+import { OAUTH_COOKIE, exchangeCode, googleConfig, redirectUri, safeNext } from "@/lib/server/google";
+import { route } from "@/lib/server/route";
+import type { GoogleProfile, OAuthContext } from "@/types/auth";
 
 type Outcome = { userId: string; role: string; companyId: string; created: boolean } | { error: string };
 
@@ -21,28 +21,23 @@ async function resolve(profile: GoogleProfile, invite: string): Promise<Outcome>
   const userId = newId();
   if (invite) {
     return tx<Outcome>(async (c) => {
-      const inv = await c.query<{ company_id: string; role: string }>(
-        "update invites set used_at = now() where token_hash = $1 and used_at is null and expires_at > now() returning company_id, role",
+      const inv = await c.query<{ company_id: string; role: string; team_id: string | null }>(
+        "update invites set used_at = now() where token_hash = $1 and used_at is null and expires_at > now() returning company_id, role, team_id",
         [sha256(invite)],
       );
       if (!inv.rows[0]) return { error: "invite" };
-      await c.query("select 1 from companies where id = $1 for update", [inv.rows[0].company_id]);
-      const usage = await seatUsage(inv.rows[0].company_id, c);
-      if (usage.active + usage.pending >= usage.total) throw new Error("full");
       await c.query(
-        "insert into users (id, email, name, password_hash, google_sub, company_id, role) values ($1, $2, $3, null, $4, $5, $6)",
-        [userId, profile.email, profile.name, profile.sub, inv.rows[0].company_id, inv.rows[0].role],
+        "insert into users (id, email, name, password_hash, google_sub, company_id, role, team_id) values ($1, $2, $3, null, $4, $5, $6, $7)",
+        [userId, profile.email, profile.name, profile.sub, inv.rows[0].company_id, inv.rows[0].role, inv.rows[0].team_id],
       );
       return { userId, role: inv.rows[0].role, companyId: inv.rows[0].company_id, created: true };
-    }).catch((e: Error) => {
-      if (e.message === "full") return { error: "full" };
-      throw e;
     });
   }
 
+  if (!isAdminEmail(profile.email)) return { error: "noaccess" };
   const companyId = newId();
   await tx(async (c) => {
-    await c.query("insert into companies (id, name, plan, credits, kind, seats) values ($1, $2, 'trial', $3, 'personal', 1)", [companyId, profile.name.slice(0, 120), TRIAL_CREDITS]);
+    await c.query("insert into companies (id, name, kind) values ($1, 'LotScope', 'personal')", [companyId]);
     await c.query(
       "insert into users (id, email, name, password_hash, google_sub, company_id, role) values ($1, $2, $3, null, $4, $5, 'user')",
       [userId, profile.email, profile.name, profile.sub, companyId],
@@ -51,7 +46,7 @@ async function resolve(profile: GoogleProfile, invite: string): Promise<Outcome>
   return { userId, role: "user", companyId, created: true };
 }
 
-export async function GET(request: Request) {
+async function handleGET(request: Request) {
   const url = new URL(request.url);
   const go = (path: string) => new Response(null, { status: 303, headers: { location: new URL(path, (process.env.APP_URL || "").replace(/\/+$/, "") || url.origin).toString() } });
   const cfg = googleConfig();
@@ -85,3 +80,5 @@ export async function GET(request: Request) {
     return go("/login?error=google_failed");
   }
 }
+
+export const GET = route(handleGET);

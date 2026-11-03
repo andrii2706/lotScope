@@ -1,0 +1,174 @@
+import { extractPhotos, newestHistory, priceStats, salePricesFrom } from "./auction.ts";
+import { AUCTIONS, auctionFromProvider, auctionLotUrl } from "./auctions.ts";
+import type { ActiveLot, SearchFilters, AuctionName, PriceStats } from "@/types/auction";
+
+export const DAMAGE_FILTERS = [
+  "Front End",
+  "Rear End",
+  "Side",
+  "Left Side",
+  "Right Side",
+  "Minor Dent/Scratches",
+  "Hail",
+  "Mechanical",
+  "Undercarriage",
+];
+
+type Rec = Record<string, unknown>;
+const isRec = (v: unknown): v is Rec => typeof v === "object" && v !== null && !Array.isArray(v);
+const text = (v: unknown) => (typeof v === "string" ? v.trim() : typeof v === "number" ? String(v) : "");
+function num(v: unknown): number {
+  if (typeof v === "number" && Number.isFinite(v)) return v;
+  if (typeof v === "string") {
+    const n = Number(v.replace(/[^0-9.]/g, ""));
+    return Number.isFinite(n) ? n : 0;
+  }
+  return 0;
+}
+function pick(r: Rec, keys: string[]): unknown {
+  for (const k of keys) {
+    const v = r[k];
+    if (v !== undefined && v !== null && v !== "") return v;
+  }
+  return undefined;
+}
+
+export function lotUrl(auction: AuctionName, lotNumber: string): string {
+  return auctionLotUrl(auction === "Other" ? "IAAI" : auction, lotNumber);
+}
+
+function flatten(r: Rec): Rec {
+  const out: Rec = { ...r };
+  for (const [key, value] of Object.entries(r)) {
+    if (key === "history" || !isRec(value)) continue;
+    for (const [k, v] of Object.entries(value)) if (!(k in out) && !isRec(v)) out[k] = v;
+  }
+  return out;
+}
+
+export function mapActiveLot(input: unknown): ActiveLot | null {
+  if (!isRec(input)) return null;
+  const raw = flatten(input);
+  const h = flatten(newestHistory(input));
+  const both = (keys: string[]) => pick(h, keys) ?? pick(raw, keys);
+  const auction: AuctionName = auctionFromProvider(text(both(["auction_name", "auction", "site"]))) ?? "Other";
+  const lotNumber = text(both(["lot_number", "lot", "lot_id", "stock_number"]));
+  const make = text(pick(raw, ["make", "brand"]));
+  const model = text(pick(raw, ["model"]));
+  const year = Math.round(num(pick(raw, ["year", "model_year"])));
+  if (!make && !lotNumber) return null;
+  const photo = extractPhotos(input)[0] ?? "";
+  return {
+    auction,
+    lotNumber,
+    vin: text(pick(raw, ["vin", "VIN"])).toUpperCase(),
+    year,
+    make,
+    model: [model, text(pick(raw, ["trim", "series"]))].filter(Boolean).join(" "),
+    primaryDamage: text(both(["primary_damage", "damage_primary", "damage"])),
+    secondaryDamage: text(both(["secondary_damage", "damage_secondary"])),
+    titleType: text(both(["title_type", "title", "document", "doc_type"])),
+    runStatus: text(both(["run_status", "condition", "highlights", "start_code"])),
+    airbags: text(both(["airbags", "airbag"])),
+    odometer: Math.round(num(both(["odometer", "mileage"]))),
+    location: text(both(["location", "yard", "yard_name", "state"])),
+    auctionDate: text(both(["auction_date", "sale_date", "date"])),
+    currentBidUsd: Math.round(num(both(["current_bid", "bid"]))),
+    buyNowUsd: Math.round(num(both(["buy_now_price", "buy_now", "buy_it_now"]))),
+    photo,
+    url: lotUrl(auction, lotNumber),
+  };
+}
+
+function isSold(raw: unknown): boolean {
+  if (!isRec(raw)) return false;
+  const status = text(newestHistory(raw).sale_status).toLowerCase();
+  return /sold|продан/.test(status) && !/not|unsold|no sale|не продан/.test(status);
+}
+
+const compact = (v: string) => v.toLowerCase().replace(/[^a-z0-9]/g, "");
+
+export function modelMatches(lotModel: string, query: string): boolean {
+  const q = compact(query);
+  if (!q) return true;
+  const series = /^(\d)series$/.exec(q);
+  const m = compact(lotModel);
+  if (series) return new RegExp(`^${series[1]}\\d\\d`).test(m) || m.startsWith(`${series[1]}series`);
+  return m.includes(q);
+}
+
+export function paginationOf(raw: unknown): { page: number; totalPages: number; total: number } {
+  const p = isRec(raw) && isRec(raw.pagination) ? raw.pagination : {};
+  return {
+    page: Math.round(num(p.current_page)) || 1,
+    totalPages: Math.round(num(p.total_pages)) || 1,
+    total: Math.round(num(p.total)),
+  };
+}
+
+export function filterLots(lots: ActiveLot[], f: SearchFilters, matchModel = false): ActiveLot[] {
+  const damages = f.damages.map((d) => d.toLowerCase());
+  return lots.filter((l) => {
+    if (matchModel && f.model && !modelMatches(l.model, f.model)) return false;
+    if (f.auction !== "all" && l.auction !== f.auction) return false;
+    if (f.yearFrom && l.year && l.year < f.yearFrom) return false;
+    if (f.yearTo && l.year && l.year > f.yearTo) return false;
+    if (f.maxMiles && l.odometer > f.maxMiles) return false;
+    if (f.maxBidUsd && l.currentBidUsd > f.maxBidUsd) return false;
+    const damage = `${l.primaryDamage} ${l.secondaryDamage}`.toLowerCase();
+    if (damages.length && !damages.some((d) => damage.includes(d))) return false;
+    if (f.excludeFlood && /water|flood/.test(damage)) return false;
+    if (f.excludeDeployed && /deployed/i.test(l.airbags) && !/not|intact/i.test(l.airbags)) return false;
+    if (f.runDriveOnly && !/run/i.test(l.runStatus)) return false;
+    return true;
+  });
+}
+
+export function listFrom(raw: unknown): unknown[] {
+  return isRec(raw) && Array.isArray(raw.result) ? raw.result : isRec(raw) && Array.isArray(raw.data) ? raw.data : Array.isArray(raw) ? raw : [];
+}
+
+export function sampleKeys(raw: unknown): string {
+  const first = listFrom(raw)[0];
+  return isRec(first) ? Object.keys(first).slice(0, 40).join(", ") : "";
+}
+
+export function activeFrom(raw: unknown): ActiveLot[] {
+  const out: ActiveLot[] = [];
+  for (const item of listFrom(raw)) {
+    if (isSold(item)) continue;
+    const lot = mapActiveLot(item);
+    if (lot) out.push(lot);
+  }
+  return out.sort((a, b) => (Date.parse(a.auctionDate) || Infinity) - (Date.parse(b.auctionDate) || Infinity));
+}
+
+export function splitResults(raw: unknown, now = Date.now()): { active: ActiveLot[]; comparables: PriceStats | null } {
+  const list = isRec(raw) && Array.isArray(raw.result) ? raw.result : isRec(raw) && Array.isArray(raw.data) ? raw.data : Array.isArray(raw) ? raw : [];
+  const active: ActiveLot[] = [];
+  for (const item of list) {
+    if (isSold(item)) continue;
+    const lot = mapActiveLot(item);
+    if (!lot) continue;
+    const when = Date.parse(lot.auctionDate);
+    if (Number.isFinite(when) && when < now - 6 * 3600_000) continue;
+    active.push(lot);
+  }
+  active.sort((a, b) => (Date.parse(a.auctionDate) || Infinity) - (Date.parse(b.auctionDate) || Infinity));
+  return { active, comparables: priceStats(salePricesFrom(raw)) };
+}
+
+export function auctionSearchLinks(f: Pick<SearchFilters, "make" | "model" | "auction">) {
+  const q = encodeURIComponent([f.make, f.model].filter(Boolean).join(" "));
+  const links: { label: string; href: string }[] = [];
+  if (!q) return links;
+  const site: Partial<Record<AuctionName, string>> = {
+    Copart: `https://www.copart.com/lotSearchResults?free=true&query=${q}`,
+    IAAI: `https://www.iaai.com/Search?Keyword=${q}`,
+    CopartCanada: `https://www.copart.ca/lotSearchResults?free=true&query=${q}`,
+    CopartFinland: `https://www.copart.fi/en/lotSearchResults?free=true&query=${q}`,
+  };
+  const wanted = f.auction === "all" ? (["Copart", "IAAI"] as AuctionName[]) : [f.auction];
+  for (const a of wanted) if (site[a]) links.push({ label: `Шукати на ${AUCTIONS[a].label}`, href: site[a] });
+  return links;
+}

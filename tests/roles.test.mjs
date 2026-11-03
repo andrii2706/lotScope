@@ -1,60 +1,49 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { allows, can, homeFor, routePermission } from "../src/lib/roles.ts";
-import { PLANS, plansFor } from "../src/lib/plans.ts";
+import { can, homeFor, routePermission } from "../src/lib/shared/roles.ts";
 
-const sub = (role, subscribed = true) => ({ role, subscribed });
+const as = (role) => ({ role });
 
 test("супер адмін має консоль і всю робочу логіку, але не команду компанії", () => {
-  for (const p of ["console", "search", "analyze", "reports", "reportsAll", "save", "pdf", "expert", "settings"]) assert.ok(can(sub("superadmin"), p), p);
-  assert.equal(can(sub("superadmin"), "team"), false);
+  for (const p of ["console", "search", "analyze", "reports", "reportsAll", "save", "pdf", "expert", "settings"]) assert.ok(can(as("superadmin"), p), p);
+  assert.equal(can(as("superadmin"), "team"), false);
 });
 
 test("адмін компанії: команда, активність, звіти компанії, без пошуку й аналізу", () => {
-  for (const p of ["team", "activity", "reportsAll", "billing", "settings"]) assert.ok(can(sub("admin"), p), p);
-  for (const p of ["search", "analyze", "save", "pdf", "expert", "console"]) assert.equal(can(sub("admin"), p), false, p);
+  for (const p of ["team", "activity", "reportsAll", "settings"]) assert.ok(can(as("admin"), p), p);
+  for (const p of ["search", "analyze", "save", "pdf", "expert", "console"]) assert.equal(can(as("admin"), p), false, p);
 });
 
-test("менеджер: пошук, аналіз, звіти, PDF; без команди й налаштувань", () => {
-  for (const p of ["search", "analyze", "reports", "save", "pdf"]) assert.ok(can(sub("manager"), p), p);
-  for (const p of ["team", "settings", "expert", "reportsAll", "billing"]) assert.equal(can(sub("manager"), p), false, p);
+test("керівник команди: пошук, аналіз, звіти, команда й активність, без налаштувань і консолі", () => {
+  for (const p of ["search", "analyze", "reports", "save", "pdf", "team", "activity"]) assert.ok(can(as("lead"), p), p);
+  for (const p of ["reportsAll", "settings", "expert", "console"]) assert.equal(can(as("lead"), p), false, p);
+});
+
+test("менеджер: пошук, аналіз, звіти, збереження й PDF без жодних підписок", () => {
+  for (const p of ["search", "analyze", "reports", "save", "pdf"]) assert.ok(can(as("manager"), p), p);
+  for (const p of ["team", "settings", "expert", "reportsAll"]) assert.equal(can(as("manager"), p), false, p);
 });
 
 test("СТО: звіти компанії та навчання моделі", () => {
-  for (const p of ["reports", "reportsAll", "expert"]) assert.ok(can(sub("expert"), p), p);
-  for (const p of ["search", "analyze", "save", "pdf"]) assert.equal(can(sub("expert"), p), false, p);
-});
-
-test("простий користувач: збереження й PDF лише з підпискою", () => {
-  assert.ok(can(sub("user", false), "search"));
-  assert.ok(can(sub("user", false), "analyze"));
-  assert.ok(can(sub("user", false), "reports"));
-  assert.equal(can(sub("user", false), "save"), false);
-  assert.equal(can(sub("user", false), "pdf"), false);
-  assert.ok(can(sub("user", true), "save"));
-  assert.ok(can(sub("user", true), "pdf"));
-});
-
-test("менеджер без підписки компанії теж не зберігає й не друкує", () => {
-  assert.equal(can(sub("manager", false), "save"), false);
-  assert.equal(can(sub("manager", false), "pdf"), false);
+  for (const p of ["reports", "reportsAll", "expert"]) assert.ok(can(as("expert"), p), p);
+  for (const p of ["search", "analyze", "save", "pdf"]) assert.equal(can(as("expert"), p), false, p);
 });
 
 test("маршрути та домашні сторінки", () => {
   assert.equal(routePermission("/"), "analyze");
   assert.equal(routePermission("/report/abc"), "reports");
   assert.equal(routePermission("/admin/company/1"), "console");
+  assert.equal(routePermission("/billing"), null);
   assert.equal(homeFor("superadmin"), "/admin");
   assert.equal(homeFor("admin"), "/activity");
   assert.equal(homeFor("expert"), "/expert");
   assert.equal(homeFor("manager"), "/");
-  assert.ok(allows("user", "billing"));
+  assert.equal(homeFor("lead"), "/");
 });
 
-test("тарифи: особистий лише для особистих акаунтів, командні лише для компаній", () => {
-  const personal = plansFor("personal").map((p) => p.id);
-  const team = plansFor("team").map((p) => p.id);
-  assert.deepEqual(personal, ["personal", "pack20"]);
-  assert.deepEqual(team, ["start", "team", "pack20"]);
-  assert.ok(PLANS.personal.recurring);
+test("запрошення: адмін кличе керівника, керівник лише менеджера", async () => {
+  const { INVITABLE_BY_ADMIN, INVITABLE_BY_LEAD, INVITABLE_BY_SUPERADMIN } = await import("../src/lib/shared/roles.ts");
+  assert.deepEqual(INVITABLE_BY_LEAD, ["manager"]);
+  assert.ok(INVITABLE_BY_ADMIN.includes("lead"));
+  assert.ok(!INVITABLE_BY_SUPERADMIN.includes("lead"));
 });

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { ageCoefficient, calculate, exciseEur, pensionPct } from "../src/lib/calc.ts";
-import { DEFAULT_SETTINGS, EMPTY_LOT } from "../src/lib/defaults.ts";
+import { ageCoefficient, calculate, exciseEur, pensionPct } from "../src/lib/shared/calc.ts";
+import { DEFAULT_SETTINGS, EMPTY_LOT } from "../src/lib/shared/defaults.ts";
 
 const NOW = new Date("2026-06-01");
 const settings = { ...DEFAULT_SETTINGS, eurUsd: 1.158 };
@@ -75,4 +75,48 @@ test("максимальна ставка зберігає цільову виг
 test("без ринкової ціни максимальна ставка не рахується", () => {
   const lot = { ...EMPTY_LOT, make: "BMW", model: "X", year: 2019, bidUsd: 5000 };
   assert.equal(calculate(lot, settings, {}, { min: 0, max: 0 }, NOW).maxBidUsd, null);
+});
+
+test("збір аукціону за сіткою Copart і IAAI", async () => {
+  const { tableAuctionFee, buyerFee } = await import("../src/lib/shared/auctionFees.ts");
+  assert.equal(buyerFee(5200), 775);
+  assert.equal(buyerFee(20000), 1500);
+  assert.equal(tableAuctionFee(5200, "Copart").total, 775 + 119 + 95 + 15 + 20);
+  assert.equal(tableAuctionFee(5200, "IAAI").total, 775 + 110 + 105 + 15 + 20);
+  assert.equal(tableAuctionFee(0, "IAAI").total, 0);
+  const lot = { ...EMPTY_LOT, auction: "IAAI", bidUsd: 5200 };
+  const r = calculate(lot, settings, {}, { min: 0, max: 0 }, NOW);
+  assert.equal(line(r, "auctionFee"), 1025);
+  const manual = calculate(lot, { ...settings, auctionFeeMode: "manual" }, {}, { min: 0, max: 0 }, NOW);
+  assert.equal(line(manual, "auctionFee"), 520 + 350);
+});
+
+test("курси НБУ: розбір відповіді і застосування", async () => {
+  const { parseNbu } = await import("../src/lib/shared/rates.ts");
+  const r = parseNbu([
+    { r030: 840, txt: "Долар США", rate: 41.5, cc: "USD", exchangedate: "03.11.2026" },
+    { r030: 978, txt: "Євро", rate: 48.13, cc: "EUR", exchangedate: "03.11.2026" },
+    { r030: 985, txt: "Злотий", rate: 11.2, cc: "PLN", exchangedate: "03.11.2026" },
+  ]);
+  assert.equal(r.usdUah, 41.5);
+  assert.equal(r.date, "03.11.2026");
+  assert.equal(parseNbu([{ cc: "USD", rate: 41 }]), null);
+});
+
+test("регіони: логістика Канади, ЄС і ОАЕ та мито 0 % з EUR.1", async () => {
+  const base = { ...EMPTY_LOT, year: 2020, fuel: "petrol", engineCc: 2000, bidUsd: 8000 };
+  const ca = calculate({ ...base, auction: "CopartCanada" }, settings, {}, { min: 0, max: 0 }, NOW);
+  assert.equal(ca.groups[0].title, "Купівля в Канаді");
+  assert.equal(line(ca, "ocean"), settings.caOceanUsd);
+  assert.equal(line(ca, "inlandUs"), settings.caInlandUsd);
+  const fi = calculate({ ...base, auction: "CopartFinland" }, settings, {}, { min: 0, max: 0 }, NOW);
+  assert.equal(line(fi, "ocean"), settings.euOceanUsd);
+  assert.ok(line(fi, "duty") > 0);
+  const fiEur1 = calculate({ ...base, auction: "CopartFinland", eur1: true }, settings, {}, { min: 0, max: 0 }, NOW);
+  assert.equal(line(fiEur1, "duty"), 0);
+  const usEur1 = calculate({ ...base, auction: "Copart", eur1: true }, settings, {}, { min: 0, max: 0 }, NOW);
+  assert.ok(line(usEur1, "duty") > 0);
+  const ae = calculate({ ...base, auction: "Emirates" }, settings, {}, { min: 0, max: 0 }, NOW);
+  assert.equal(line(ae, "deliveryUa"), settings.aeDeliveryUsd);
+  assert.equal(line(ae, "auctionFee"), Math.round(8000 * settings.auctionFeePct / 100 + settings.auctionFeeFixedUsd));
 });

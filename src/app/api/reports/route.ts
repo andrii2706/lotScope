@@ -1,28 +1,30 @@
-import { audit } from "@/lib/audit";
-import { newId, requireUser } from "@/lib/auth";
-import { query, tx } from "@/lib/db";
-import { MAX_REPORT_REQUEST, MAX_STORED_PHOTOS, type ReportRow, isDataUrl, rowToReport } from "@/lib/reports";
-import { can } from "@/lib/roles";
-import { fail } from "@/lib/server";
+import { audit } from "@/lib/server/audit";
+import { newId, requireUser } from "@/lib/server/auth";
+import { query, tx } from "@/lib/server/db";
+import { MAX_REPORT_REQUEST, MAX_STORED_PHOTOS, isDataUrl, rowToReport } from "@/lib/server/reports";
+import { can } from "@/lib/shared/roles";
+import { reportScope, reportScopeParams, reportScopeSql } from "@/lib/server/scope";
+import { fail } from "@/lib/server/http";
+import { route } from "@/lib/server/route";
+import type { ReportRow } from "@/types/system";
 
 const LIMIT = 300;
 
-export async function GET() {
+async function handleGET() {
   const user = await requireUser("reports");
   if (user instanceof Response) return user;
-  const all = can(user, "reportsAll");
   const rows = await query<ReportRow>(
     `select r.id, r.user_id, u.name as author, r.body, r.created_at,
             (select count(*) from report_photos p where p.report_id = r.id)::int as photos
        from reports r left join users u on u.id = r.user_id
-      where r.company_id = $1 and ($2::boolean or r.user_id = $3)
+      where r.company_id = $1 and ${reportScopeSql("r", 2)}
       order by r.created_at desc limit ${LIMIT}`,
-    [user.companyId, all, user.id],
+    [user.companyId, ...reportScopeParams(reportScope(user))],
   );
   return Response.json({ reports: rows.map(rowToReport), canSave: can(user, "save") });
 }
 
-export async function POST(request: Request) {
+async function handlePOST(request: Request) {
   const user = await requireUser("save");
   if (user instanceof Response) return user;
   const raw = await request.text();
@@ -62,3 +64,6 @@ export async function POST(request: Request) {
   );
   return Response.json({ report: rowToReport(rows[0]) });
 }
+
+export const GET = route(handleGET);
+export const POST = route(handlePOST);
