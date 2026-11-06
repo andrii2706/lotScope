@@ -39,4 +39,5 @@ export interface OutboundLink {
   label: string;
   href: string;
   copy?: string;
+  note?: string;
 }

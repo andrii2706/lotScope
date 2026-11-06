@@ -3,11 +3,12 @@
 import { useEffect, useState } from "react";
 import { cleanVin } from "../shared/vin.ts";
 import { responseMessage } from "../shared/errors.ts";
+import { FEATURES } from "../../config/features.ts";
 import type { VinHistoryState, VinHistoryResponse } from "@/types/vin";
 
 export function useVinHistory(rawVin: string): VinHistoryState {
   const vin = cleanVin(rawVin);
-  const valid = /^[A-HJ-NPR-Z0-9]{17}$/.test(vin);
+  const valid = FEATURES.vinHistoryAuto && /^[A-HJ-NPR-Z0-9]{17}$/.test(vin);
   const [state, setState] = useState<VinHistoryState>({ status: "idle" });
 
   useEffect(() => {

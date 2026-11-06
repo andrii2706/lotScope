@@ -4,7 +4,7 @@ import { useSyncExternalStore } from "react";
 import { DEFAULT_SETTINGS } from "../shared/defaults.ts";
 import { onUserChange } from "./me.ts";
 import { responseMessage, NETWORK_MESSAGE } from "../shared/errors.ts";
-import type { Report, Settings } from "@/types/report";
+import type { HistoryDoc, HistoryFile, Report, Settings } from "@/types/report";
 
 const PREFS_KEY = "lotscope.prefs.v1";
 const LOCAL_KEYS = ["theme", "expertName"] as const;
@@ -152,6 +152,30 @@ export async function saveReport(report: Report, persist: boolean): Promise<Repo
   state = { ...state, server: [data.report, ...state.server.filter((r) => r.id !== data.report?.id)] };
   notify();
   return data.report;
+}
+
+export function localHistoryDocs(files: HistoryFile[]): HistoryDoc[] {
+  return files.map((f) => ({ name: f.name, mediaType: f.mediaType, url: `data:${f.mediaType};base64,${f.data}` }));
+}
+
+export async function attachHistoryDocs(id: string, files: HistoryFile[]): Promise<HistoryDoc[]> {
+  const docs: HistoryDoc[] = [];
+  for (const file of files) {
+    const res = await fetch(`/api/reports/${id}/file`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ name: file.name, mediaType: file.mediaType, data: file.data }),
+    }).catch(() => null);
+    const data = (await res?.json().catch(() => null)) as { doc?: HistoryDoc; error?: string } | null;
+    if (!res || !res.ok || !data?.doc) {
+      responseMessage(`/api/reports/${id}/file`, res?.status ?? 0, data, "");
+      continue;
+    }
+    docs.push(data.doc);
+  }
+  state = { ...state, server: state.server.map((r) => (r.id === id ? { ...r, historyDocs: docs } : r)) };
+  notify();
+  return docs;
 }
 
 export function updateReport(id: string, patch: Partial<Report>) {

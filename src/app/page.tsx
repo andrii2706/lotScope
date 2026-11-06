@@ -19,11 +19,12 @@ import { preparePhoto } from "@/lib/client/images";
 import { useLessons } from "@/lib/client/lessons";
 import { refreshMe, useMe } from "@/lib/client/me";
 import { can } from "@/lib/shared/roles";
-import { getSettings, saveReport } from "@/lib/client/store";
+import { attachHistoryDocs, getSettings, localHistoryDocs, saveReport } from "@/lib/client/store";
 import { userMessage, responseMessage } from "@/lib/shared/errors";
 import type { Comparables, LotLookupResponse } from "@/types/auction";
 import type { AnalyzeRequest, AnalyzeResponse, HistoryFile, LotInput, Report, AnalyzeStatus } from "@/types/report";
 import type { PreparedPhoto } from "@/types/system";
+import { FEATURES } from "@/config/features";
 import { STORED_PHOTOS, DAMAGE_OPTIONS, TITLE_OPTIONS, LOADING_STAGES, OUTCOMES, MAX_REQUEST_CHARS } from "@/config/analysis";
 
 export default function NewAnalysisPage() {
@@ -100,13 +101,13 @@ export default function NewAnalysisPage() {
     { label: "Ціни", done: pricesDone, required: false, href: "#step-prices", note: pricesDone ? "ставка та ринок" : "для максимальної ставки" },
     { label: "Картка лота", done: cardFilled > 0, required: false, href: "#step-card", note: cardFilled > 0 ? `заповнено полів: ${cardFilled}` : "уточнює аналіз" },
     {
-      label: "Історія за VIN",
+      label: FEATURES.vinHistoryAuto ? "Історія за VIN" : "Звіт Carfax",
       done: historyDone,
       required: false,
       href: "#step-history",
       note: vinState.status === "loading"
         ? "шукаю за VIN…"
-        : [vinHistory ? "автоматично" : "", history.length ? `Carfax: ${history.length}` : ""].filter(Boolean).join(" + ") || "з'явиться після VIN",
+        : [vinHistory ? "автоматично" : "", history.length ? `Carfax: ${history.length}` : ""].filter(Boolean).join(" + ") || (FEATURES.vinHistoryAuto ? "з'явиться після VIN" : "за бажанням"),
     },
   ];
 
@@ -158,15 +159,17 @@ export default function NewAnalysisPage() {
       };
       let saved = report;
       let notSaved = false;
+      const local = { ...report, historyDocs: localHistoryDocs(history) };
       if (can(me.status === "ready" ? me.user : null, "save")) {
         try {
           saved = await saveReport(report, true);
+          if (history.length) saved = { ...saved, historyDocs: await attachHistoryDocs(saved.id, history) };
         } catch {
-          saved = await saveReport(report, false);
+          saved = await saveReport(local, false);
           notSaved = true;
         }
       } else {
-        saved = await saveReport(report, false);
+        saved = await saveReport(local, false);
       }
       void refreshMe();
       router.push(`/report/${saved.id}${notSaved ? "?unsaved=1" : ""}`);
@@ -298,7 +301,9 @@ export default function NewAnalysisPage() {
                   suffix="$"
                 />
               </Field>
-              <MarketPrice lot={lot} onPrice={(v, source) => setLot((prev) => ({ ...prev, marketPriceUsd: v, marketSource: source }))} />
+              {FEATURES.marketPriceAuto && (
+                <MarketPrice lot={lot} onPrice={(v, source) => setLot((prev) => ({ ...prev, marketPriceUsd: v, marketSource: source }))} />
+              )}
               {regionOf(lot.auction) === "eu" && (
                 <label className="flex items-start gap-3 rounded-xl border border-line2 p-3.5 sm:col-span-2">
                   <input
@@ -424,16 +429,26 @@ export default function NewAnalysisPage() {
           <StepCard
             id="step-history"
             step={5}
-            title="Історія за VIN"
-            hint="Підтягується автоматично за VIN: попередні аукціони, титули й статуси. Звіт Carfax можна додати поверх."
+            title={FEATURES.vinHistoryAuto ? "Історія за VIN" : "Звіт Carfax чи AutoCheck"}
+            hint={
+              FEATURES.vinHistoryAuto
+                ? "Підтягується автоматично за VIN: попередні аукціони, титули й статуси. Звіт Carfax можна додати поверх."
+                : "Додайте PDF або скриншоти звіту. ШІ врахує історію в аналізі, а файл збережеться у звіті."
+            }
             done={historyDone}
             badge="optional"
           >
-            <VinHistoryPanel state={vinState} />
-            <div className="mt-5 border-t border-line pt-5">
-              <p className="mb-3 text-sm font-semibold">Звіт Carfax чи AutoCheck</p>
+            {FEATURES.vinHistoryAuto ? (
+              <>
+                <VinHistoryPanel state={vinState} />
+                <div className="mt-5 border-t border-line pt-5">
+                  <p className="mb-3 text-sm font-semibold">Звіт Carfax чи AutoCheck</p>
+                  <HistoryUploader files={history} onChange={setHistory} disabled={loading} />
+                </div>
+              </>
+            ) : (
               <HistoryUploader files={history} onChange={setHistory} disabled={loading} />
-            </div>
+            )}
           </StepCard>
         </div>
 

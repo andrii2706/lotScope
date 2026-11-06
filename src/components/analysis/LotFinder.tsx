@@ -5,6 +5,7 @@ import { LoaderCircle, Search } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { parseLotQuery } from "@/lib/shared/auction";
 import { Button, Notice, OutLink } from "@/components/ui";
+import { FEATURES } from "@/config/features";
 import { userMessage, responseMessage } from "@/lib/shared/errors";
 import type { LotLookupResponse } from "@/types/auction";
 
@@ -105,7 +106,7 @@ export function LotFinder({
         <div>
           <h2 className="text-lg font-semibold leading-tight tracking-tight">Знайти лот</h2>
           <p className="mt-1 text-sm text-muted">
-            Вставте посилання Copart чи IAAI, номер лота або VIN: дані, фото та історія за VIN підтягнуться самі.
+            {FEATURES.vinHistoryAuto ? "Вставте посилання Copart чи IAAI, номер лота або VIN: дані, фото та історія за VIN підтягнуться самі." : "Вставте посилання Copart чи IAAI, номер лота або VIN: дані й фото лота підтягнуться самі."}
           </p>
         </div>
       </header>
@@ -191,7 +192,7 @@ export function LotFinder({
           )}
           {result.links.some((l) => l.group === "history") && (
             <p className="text-xs text-faint">
-              Carfax і AutoCheck відкриваються на сторінці перевірки, а VIN копіюється автоматично: вставте його в поле на сайті. Це американські платні сервіси, з України вони часто вантажаться дуже довго або не відповідають, тож відкривайте їх через VPN (США). Історія за VIN у кроці 5 форми підтягується автоматично і без цих сайтів.
+              Під час кліку VIN копіюється автоматично: вставте його в поле на сайті. carVertical і ClearVIN працюють з України. Carfax і AutoCheck з України не відкриваються, лише через VPN (США). {FEATURES.vinHistoryAuto ? "Історія за VIN у кроці 5 форми підтягується автоматично і без цих сайтів." : "Завантажений звіт додайте в кроці 5 форми: ШІ врахує його, а файл збережеться у звіті."}
             </p>
           )}
         </div>

@@ -32,7 +32,7 @@ workspace, the company's own rates, and a report under the company's brand.
 A working MVP. Verified:
 
 - build, lint and type check pass;
-- 49 tests pass (`npm test`): calculations, VIN checks, lot query parsing, provider mapping, lot search, VIN history, roles, password hashing and reset mail;
+- 56 tests pass (`npm test`): calculations, VIN checks, lot query parsing, provider mapping, lot search, VIN history, roles, password hashing, reset mail, DB SSL config and history file validation;
 - the full flow in a browser on desktop and phone: form → analysis → report → editing
   amounts → print to PDF → history → settings;
 - real AI analysis with an API key works: the first real lot (2018 BMW 330i GT xDrive,
@@ -48,7 +48,7 @@ Not verified: accuracy of repair estimates against a sample of lots with known r
 - `lucide-react` — icons
 - `@fontsource-variable/geist` (interface font), `@fontsource-variable/geist-mono` (lot numbers, VIN)
 - Tests: built-in `node:test`, no extra libraries
-- Postgres through `pg` (plain SQL, schema in `db/schema.sql`, applied by `npm run db:migrate`): companies, users, sessions, invites, lessons, reports, report_photos, audit_log, market_cache, password_resets (`payments`, `usage`, `lot_unlocks` and `companies.plan/credits` are left from the removed billing and are no longer read). Reports and company settings live in the database
+- Postgres through `pg` (plain SQL, schema in `db/schema.sql`, applied by `npm run db:migrate`): companies, users, sessions, invites, lessons, reports, report_photos, report_files, audit_log, market_cache, password_resets (`payments`, `usage`, `lot_unlocks` and `companies.plan/credits` are left from the removed billing and are no longer read). Reports and company settings live in the database
 - Requires Node.js 20.9+
 
 ## Commands
@@ -77,7 +77,8 @@ not read the template). Restart the server after changing it.
 | `ANTHROPIC_API_KEY` | for analysis | Claude API key. Without it the app runs in demo mode. |
 | `ANTHROPIC_MODEL` | no | Model, defaults to `claude-sonnet-5-5`. |
 | `ANTHROPIC_EFFORT` | no | Model reasoning depth: `low`, `medium`, `high`, `xhigh` or `max`. Unset = model default. Check that the chosen model supports it. |
-| `DATABASE_URL` | yes | Postgres connection string. Without it nobody can sign in. |
+| `DATABASE_URL` | yes | Postgres connection string. Without it nobody can sign in. On Supabase use the shared pooler in transaction mode (port 6543). |
+| `DATABASE_SSL`, `DATABASE_SSL_CA` | no | `DATABASE_SSL=off` or `verify` overrides SSL; `DATABASE_SSL_CA` (PEM, `\n` allowed) turns on full certificate verification with that CA. |
 | `APP_URL` | for Google and mail | Public base URL; the Google redirect URI and password reset links are built from it. |
 | `ADMIN_EMAILS` | yes for the first superadmin | Comma-separated emails that get the derived `superadmin` role and the console at `/admin`. Create the account with `npm run user:password -- email` or Google sign-in. |
 | `SESSION_HOURS` | no | Session length in hours, default 8. |
@@ -86,11 +87,12 @@ not read the template). Restart the server after changing it.
 | `GOOGLE_AUTH_URL`, `GOOGLE_TOKEN_URL`, `GOOGLE_USERINFO_URL` | no | Default to Google's endpoints; used by tests to point at a mock. |
 | `AUCTION_API_KEY` | no | Licensed auction data provider key (apiauctions.io). Enables lot autofill, photos and comparable sales. Without it "Знайти лот" only shows search links. |
 | `AUCTION_API_URL` | no | Provider base URL, defaults to `https://apiauctions.io`. Used by tests to point at a mock. |
-| `VINAUDIT_API_KEY`, `VINAUDIT_USER`, `VINAUDIT_PASS` | no | VinAudit (NMVTIS) for automatic VIN history: title records, brands, junk/salvage/insurance records. About $1 per query. |
+| `VINAUDIT_API_KEY`, `VINAUDIT_USER`, `VINAUDIT_PASS` | no | VinAudit (NMVTIS) for automatic VIN history: title records, brands, junk/salvage/insurance records. `/api/history` calls `GET /v2/query` then `GET /v2/pullreport`, both with `key`, `user`, `pass`, `format=json` (data.vinaudit.com docs, checked 2026-11-07); failures are logged with `[vinaudit]`. Trial 10 queries, then $100/month + $1 per query. Verified only against a local mock. |
 | `VINAUDIT_API_URL` | no | VinAudit base URL, defaults to `https://api.vinaudit.com`. |
-| `AUTORIA_API_KEY` | no | developers.ria.com key for the Ukrainian market price. |
+| `AUTORIA_API_KEY` | no | developers.ria.com key for the Ukrainian market price (sign up at developers.ria.com/signup, key in developers.ria.com/account/; free package 1000 requests, 30 per hour). |
 | `AUTORIA_API_URL`, `NBU_API_URL` | no | Override AUTO.RIA and NBU endpoints (tests). |
 | `RESEND_API_KEY`, `MAIL_FROM` | for password reset | Resend key and sender from a verified domain. Without them no mail is sent; in development the reset link is logged to the server console. |
+| `MAIL_REPLY_TO` | no | Reply-To for system mail (a shared support mailbox, never a personal one). Without it the footer says the mail is automatic and needs no reply. |
 | `RESEND_API_URL` | no | Resend base URL, for tests. |
 | `ANTHROPIC_PARTS_MODEL` | no | Model for the parts price search (web search must be enabled for the org). |
 
@@ -127,10 +129,10 @@ src/components/
   ui/                        Button, Card, Field, NumberInput, Notice, PageHeader, Segmented, Select, StepCard, StatTile, Combobox, ConfirmDialog, Lightbox, OutLink; index.ts re-exports them
   auth/                      AuthForm, GoogleButton
   analysis/                  LotFinder, PhotoUploader, HistoryUploader, VinHistoryPanel, VinDecodeButton, MarketPrice
-  report/                    CostTable, PrintReport, ScoreRing, ExpertReviewCard, HistoryMarket, PartsPrices, ReportBlocks (Block, Kpi, Fact, ListBlock, EditField), reportStyles
+  report/                    CostTable, PrintReport, ScoreRing, ExpertReviewCard, HistoryMarket, HistoryDocs, PartsPrices, ReportBlocks (Block, Kpi, Fact, ListBlock, EditField), reportStyles
   admin/                     AuditList, AdminLog, CompanyTable, CreateCompany
   search/                    RunBadge
-src/config/                  navigation (NAV, auth pages, photo), analysis (form options, loading stages), settings (sections, region rows, accents), search (default filters), auth (Google error texts)
+src/config/                  features (FEATURES switches), navigation (NAV, auth pages, photo), analysis (form options, loading stages), settings (sections, region rows, accents), search (default filters), auth (Google error texts)
 src/types/                   report (LotInput, Analysis, Settings, Report…), auction, vin, pricing, auth (Role, Permission, CurrentUser, Me…), admin, team, system, ui
 src/lib/server/              auth, db, dbssl, dberror, schema, route, http (fail/readJson/text), scope, members, audit, superadmin, google, password, mail, provider, autoria, reports, prompt, normalize, demo
 src/lib/client/              api, me, store, rates (useRates/useCostSettings), lessons, theme, images, useVinHistory, navigation (safeNext)
@@ -138,6 +140,7 @@ src/lib/shared/              calc, auctionFees, auctions, auction, search, lots,
 src/proxy.ts                 redirects pages without a session cookie to /login
 tests/*.test.mjs             node:test suites importing src/lib/shared and src/lib/server files directly
 db/schema.sql                database schema; scripts/migrate.mjs and lib/server/schema.ts apply it
+docs/deploy.md               deployment guide (Ukrainian): step-by-step setup of every service, Vercel variables, external URLs, DNS, Supabase and Vercel security
 ```
 
 ## How an analysis runs
@@ -216,6 +219,13 @@ Known simplifications:
 - VIN decoder: `/api/vin-decode` → provider `/api/v2/vin-decoding` (`lib/shared/vinDecode.ts`), button "Розшифрувати VIN" under the VIN field fills empty make/model, year, engine, fuel and stores `lot.plantCountry` (`isEuPlant`). Verified only against a mock built from the documented example.
 - Regional starting rates are rough (Canada from Meest's 3 499 CAD Toronto/Montreal → Chornomorsk, 2025; UAE from a 2026 dealer article, 1 800–2 500 $; no fresh EU figure). IAA Canada, Manheim, OPENLANE, ACV and other European platforms have no legitimate data source yet (research of 2026-11-03).
 
+## Feature switches and Carfax files
+
+- `src/config/features.ts` holds `FEATURES` (code switches, change and redeploy): `marketPriceAuto` (AUTO.RIA market price) and `vinHistoryAuto` (automatic VIN history: VinAudit + provider auction history). Both are `false` since 2026-11-07 because they cost money: the form hides `MarketPrice` and `VinHistoryPanel`, `useVinHistory` does not call the API, `/api/market` answers `configured: false`, `/api/history` POST answers `configured: false` and GET returns `enabled`. Step 5 of the form is then "Звіт Carfax чи AutoCheck" with only `HistoryUploader`.
+- Carfax/AutoCheck files are stored with the report: after `POST /api/reports` the client (`attachHistoryDocs` in `store.ts`) sends each file to `POST /api/reports/[id]/file` (author only, max 4, one file per request to stay under the Vercel 4.5 MB body limit, PDF up to 3 MB in `HistoryUploader`). `parseHistoryDoc` (`lib/server/reports.ts`) checks the declared type against magic bytes (PDF, JPEG, PNG, WEBP) and cleans the name. Rows go to `report_files`, metadata `{n, name, mediaType}` is appended to `reports.body.historyDocs`, and `rowToReport` turns it into `historyDocs: [{name, mediaType, url}]`. `GET /api/reports/[id]/file/[n]` serves the file with the report scope check, `nosniff` and `content-disposition: inline`. Unsaved reports keep data URLs and open them as blobs (`components/report/HistoryDocs.tsx`). New reports start with `historyDocs: []`, so a name in `historyFiles` without a stored doc is shown as "не вдалося зберегти"; old reports without `historyDocs` show nothing.
+- `next.config.ts` adds security headers to every response (HSTS, `X-Frame-Options: DENY`, CSP `frame-ancestors 'none'; base-uri 'self'`, `nosniff`, Referrer-Policy, Permissions-Policy, `X-Robots-Tag: noindex`) and `poweredByHeader: false`; `app/robots.ts` disallows everything and `proxy.ts` skips `robots.txt`. Do not add a strict CSP without testing the theme boot script and the PDF viewer.
+- `.env.production.example` is the template of production variables to paste into Vercel.
+
 ## Market and parts prices
 
 - `/api/market` (`lib/server/autoria.ts`, pure helpers in `lib/shared/autoriaMatch.ts`): AUTO.RIA API (`api_key` query param). Marks and models dictionaries (`/auto/categories/1/marks`, `/auto/categories/1/marks/{id}/models`) are cached in memory and in `market_cache` for 30 days. The price comes from the documented average price endpoint `GET /auto/average_price?marka_id&model_id&yers` (response `total`, `arithmeticMean`, `interQuartileMean`, `percentiles`, `prices`, `classifieds`; 400 `{"message":"Not Enough Data"}` when the sample is too small). We request the exact year; if it has fewer than 5 prices we add year−1 and year+1 and compute median and quartiles from the merged `prices` (`statsFrom`). One lookup costs 1–3 requests (the free key allows about 30 per hour and 1000 per month, and going over blocks the key for a while), the result is cached 7 days. The endpoint does not filter damaged or uncleared cars, the UI says so. HTTP-200 `noticeData` errors, 4xx `{error:{code,message}}`, `OVER_RATE_LIMIT`/429 and non-JSON answers are logged with `[autoria]` (without the key) and shown as a friendly message. The previous search + `/auto/info` approach used up to 11 requests per lookup and hit the hourly limit; it was removed. Verified only against a local mock built from the README of ria-com/auto-ria-rest-api; check one real lookup and the `[autoria]` log after setting `AUTORIA_API_KEY`.
@@ -239,7 +249,8 @@ A light business SaaS interface by default (mocks: Design artifact "LotScope —
 
 - Layout: `AppShell` renders a 248px white sidebar on `lg+` and a 56px top bar with a drawer below it; content is `max-w-[1180px]`. The sidebar is always rendered on app pages: while `/api/auth/me` loads it shows a skeleton, if it fails it keeps the shell, shows a notice and retries every 5 s, and without a session it redirects to `/login`. Page content renders only once the user is known. Auth pages (`/login`, `/invite`, `/forgot-password`, `/reset-password`) use `AuthLayout` (form left, photo right, no theme toggle).
 - No native dropdowns: use `Select` (`components/ui/Select.tsx`: button with `role="combobox"`, listbox rendered in a portal with fixed position so cards with `overflow-hidden` do not clip it, flips upward near the bottom, keyboard: arrows, Home/End, Enter/Space, Escape, type-ahead) instead of `<select>`, and `Combobox` (`minChars={0}` shows the whole list on focus) instead of `<datalist>`. `.control` sets `background-color`, never the `background` shorthand.
-- External links go through `OutLink` (`components/ui/OutLink.tsx`, type `OutboundLink`). Carfax and AutoCheck have no working deep link by VIN (their report URLs hang or are blocked from Ukraine), so `lib/shared/historySites.ts` points to their VIN-entry pages and sets `copy: vin`: the click copies the VIN and shows a short toast. Never link to `Report.cfx?vin=` or `autocheck.com/vehiclehistory/?vin=`.
+- External links go through `OutLink` (`components/ui/OutLink.tsx`, type `OutboundLink`). Carfax and AutoCheck are geo-blocked from Ukraine and have no working deep link by VIN, so `lib/shared/historySites.ts` points to VIN-entry pages, marks them `note: "VPN США"` (shown as a badge) and lists carVertical and ClearVIN first because they work from Ukraine. Every history link sets `copy: vin`: the click copies the VIN and shows a short toast. Never link to `Report.cfx?vin=` or `autocheck.com/vehiclehistory/?vin=`.
+- Lots without an auction date are still active and can be analysed. `newestHistory` (`lib/shared/auction.ts`) returns an undated, not-sold history entry first (that is the current listing), then the newest by `sale_date`/`auction_date`; `salePricesFrom` passes `datedOnly` so sold prices still come from dated sales. The search table shows «дата ще не призначена» for them.
 - Look: Geist, page title 28px/700 with `-0.02em`, cards white with a 1px `--line` border and 16px radius, buttons 40px high with 10px radius, statuses as pills with text. The logo square is lime `#c8f542`; the default brand/accent color is `#2b59ff`.
 - `Settings.theme` is `light | dark | system`, default `light`. The sidebar button toggles light/dark; settings have all three. `useResolvedTheme` sets `data-theme` on `<html>`; `THEME_BOOT_SCRIPT` in the layout `<head>` sets it before paint (default light).
 - Light values live in `:root`, dark ones in `:root[data-theme="dark"]` in `globals.css`. When you add a color variable, define it for light, dark and print.
@@ -297,7 +308,8 @@ LotScope is sold to companies under a contract outside the app: there are no pay
 - Getting access: the superadmin creates a company on `/admin` (name only) and gets a one-time admin invite link (7 days) to send to the client; on the company page the superadmin creates profiles (invite links for `admin`, `manager`, `expert`) and deletes them. There is no seat limit. Lessons are written by `expert` only.
 - Teams: `teams (id, company_id, name)`, `users.team_id`, `invites.team_id`. The company admin creates and deletes teams on `/team`, invites `lead` (team required), `manager` (team optional) or `expert` (no team), and changes anyone's role and team. A `lead` has search, analyze, save, pdf, `team` and `activity`, but every list is scoped to `users.team_id = lead.team_id`: `/api/reports` and report photos (`lib/server/scope.ts`), `/api/activity` (members and log), `/api/team` (members, invites). A lead can invite only `manager` into his own team and activate, deactivate or delete only managers of his team; creating teams and changing roles or teams answers 403. A lead without a team sees only his own reports.
 - No public registration: `/register` and `/api/auth/register` are removed. Google sign-in without an invite works only for existing users or `ADMIN_EMAILS` (creates a personal "LotScope" company); everyone else is sent back with `google_noaccess`. `npm run user:password -- email` creates the superadmin account when the email is in `ADMIN_EMAILS` and does not exist yet. The login page shows `SALES_CONTACT`.
-- DB SSL: `lib/server/dbssl.ts` strips `sslmode` from `DATABASE_URL` and uses `ssl: {rejectUnauthorized:false}` for non-local hosts (`DATABASE_SSL=off|verify` overrides); `migrate.mjs` does the same.
+- DB SSL: `lib/server/dbssl.ts` strips `sslmode` from `DATABASE_URL` and uses `ssl: {rejectUnauthorized:false}` for non-local hosts (`DATABASE_SSL=off|verify` overrides); with `DATABASE_SSL_CA` it uses `{ca, rejectUnauthorized:true}`. `migrate.mjs` and `set-password.mjs` do the same. The CA path was not tested against a real Supabase project.
+- The end of `db/schema.sql` enables RLS on every table in `public` and, when the Supabase roles `anon`/`authenticated` exist, revokes their privileges (also default privileges). The app connects as the table owner, so RLS does not affect it; a separate app role would need to own the tables or have `BYPASSRLS`. Deployment and security setup for Vercel, Supabase, DNS and mail: `docs/deploy.md`.
 - Sessions last `SESSION_HOURS` (default 8, absolute from login, never extended; `currentUser` also checks `created_at + SESSION_HOURS`): DB `expires_at`, cookie expiry, a client timer in
   `AppShell` and `api()` redirect to `/login?error=session`.
 - Suspension: `companies.suspended` makes `requireUser` answer 403 `suspended`, deletes sessions, and

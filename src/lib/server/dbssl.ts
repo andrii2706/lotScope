@@ -13,5 +13,7 @@ export function poolConfig(url: string | undefined): pg.PoolConfig {
   const off = mode === "off" || mode === "false" || (!mode && local);
   const clean = url.replace(/([?&])sslmode=[^&]*&?/, "$1").replace(/[?&]$/, "");
   if (off) return { connectionString: clean };
+  const ca = (process.env.DATABASE_SSL_CA || "").replace(/\\n/g, "\n").trim();
+  if (ca) return { connectionString: clean, ssl: { ca, rejectUnauthorized: true } };
   return { connectionString: clean, ssl: mode === "verify" ? true : { rejectUnauthorized: false } };
 }

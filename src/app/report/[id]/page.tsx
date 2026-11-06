@@ -585,6 +585,7 @@ export default function ReportPage() {
             analysis={analysis}
             comparables={report.comparables}
             historyFiles={report.historyFiles}
+            historyDocs={report.historyDocs}
             vinHistory={report.vinHistory}
             vin={report.lot.vin}
           />

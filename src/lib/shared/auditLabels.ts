@@ -9,6 +9,7 @@ export const ACTION_LABEL: Record<string, string> = {
   unlock: "Відкрито лот",
   parts_search: "Пошук цін запчастин",
   report_save: "Звіт збережено",
+  report_file: "Додано файл історії",
   report_delete: "Звіт видалено",
   report_pdf: "Сформовано PDF",
   report_review: "Експертний висновок",

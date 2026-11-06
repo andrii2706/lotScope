@@ -210,7 +210,11 @@ export function PrintReport({
           {analysis.historyProvided && (
             <List
               title="Історія за VIN"
-              items={[analysis.historySummary, ...(analysis.historyFindings ?? [])].filter(Boolean)}
+              items={[
+                analysis.historySummary,
+                ...(analysis.historyFindings ?? []),
+                report.historyDocs?.length ? `Додані звіти історії: ${report.historyDocs.map((d) => d.name).join(", ")}.` : "",
+              ].filter(Boolean)}
               empty="—"
               dot="bg-accent"
             />

@@ -164,3 +164,37 @@ create index if not exists teams_company on teams(company_id);
 alter table users add column if not exists team_id text references teams(id) on delete set null;
 alter table invites add column if not exists team_id text references teams(id) on delete cascade;
 create index if not exists users_team on users(team_id);
+
+create table if not exists report_files (
+  report_id text not null references reports(id) on delete cascade,
+  idx integer not null,
+  name text not null,
+  media_type text not null,
+  data text not null,
+  created_at timestamptz not null default now(),
+  primary key (report_id, idx)
+);
+
+do $$
+declare t text;
+begin
+  for t in select tablename from pg_tables where schemaname = 'public' loop
+    execute format('alter table public.%I enable row level security', t);
+  end loop;
+  if exists (select 1 from pg_roles where rolname = 'anon') then
+    revoke all on all tables in schema public from anon;
+    revoke all on all sequences in schema public from anon;
+    revoke all on all functions in schema public from anon;
+    alter default privileges in schema public revoke all on tables from anon;
+    alter default privileges in schema public revoke all on sequences from anon;
+    alter default privileges in schema public revoke all on functions from anon;
+  end if;
+  if exists (select 1 from pg_roles where rolname = 'authenticated') then
+    revoke all on all tables in schema public from authenticated;
+    revoke all on all sequences in schema public from authenticated;
+    revoke all on all functions in schema public from authenticated;
+    alter default privileges in schema public revoke all on tables from authenticated;
+    alter default privileges in schema public revoke all on sequences from authenticated;
+    alter default privileges in schema public revoke all on functions from authenticated;
+  end if;
+end $$;

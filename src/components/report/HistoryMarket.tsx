@@ -1,9 +1,10 @@
 import { BarChart3, History } from "lucide-react";
 import { OutLink } from "@/components/ui";
+import { HistoryDocs } from "@/components/report/HistoryDocs";
 import { HISTORY_SITES } from "@/lib/shared/historySites";
 import { cleanVin } from "@/lib/shared/vin";
 import type { Comparables } from "@/types/auction";
-import type { Analysis } from "@/types/report";
+import type { Analysis, HistoryDoc } from "@/types/report";
 import type { VinHistory } from "@/types/vin";
 
 const MILEAGE = {
@@ -18,12 +19,14 @@ export function HistoryMarket({
   analysis,
   comparables,
   historyFiles,
+  historyDocs,
   vinHistory,
   vin,
 }: {
   analysis: Analysis;
   comparables?: Comparables | null;
   historyFiles?: string[];
+  historyDocs?: HistoryDoc[];
   vinHistory?: VinHistory | null;
   vin: string;
 }) {
@@ -77,8 +80,12 @@ export function HistoryMarket({
           </>
         ) : (
           <div className="text-sm text-muted">
-            <p>Звіт Carfax чи AutoCheck до аналізу не додавали, тож попередні ДТП і пробіг не перевірені.</p>
-            {cleanedVin.length === 17 && (
+            <p>
+              {historyDocs?.length
+                ? "Звіт історії додано до лота, але висновків з нього в аналізі немає. Перегляньте файл нижче."
+                : "Звіт Carfax чи AutoCheck до аналізу не додавали, тож попередні ДТП і пробіг не перевірені."}
+            </p>
+            {!historyDocs?.length && cleanedVin.length === 17 && (
               <span className="no-print mt-2 flex flex-wrap gap-x-4 gap-y-1">
                 {HISTORY_SITES.map((s) => (
                   <OutLink
@@ -91,6 +98,7 @@ export function HistoryMarket({
             )}
           </div>
         )}
+        <HistoryDocs docs={historyDocs} names={historyFiles} />
       </section>
 
       <section className="card p-5 sm:p-6">

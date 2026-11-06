@@ -2,11 +2,12 @@ import { requireUser } from "@/lib/server/auth";
 import { RiaError, autoriaConfigured, marketPrice } from "@/lib/server/autoria";
 import { fail, readJson } from "@/lib/server/http";
 import { route } from "@/lib/server/route";
+import { FEATURES } from "@/config/features";
 
 export const maxDuration = 60;
 
 async function handleGET() {
-  return Response.json({ configured: autoriaConfigured() });
+  return Response.json({ configured: FEATURES.marketPriceAuto && autoriaConfigured() });
 }
 
 async function handlePOST(request: Request) {
@@ -17,6 +18,7 @@ async function handlePOST(request: Request) {
   const model = typeof body?.model === "string" ? body.model.trim().slice(0, 80) : "";
   const year = typeof body?.year === "number" ? Math.round(body.year) : 0;
   if (!make || !model || year < 1980) return fail(400, "Спершу вкажіть марку, модель і рік.");
+  if (!FEATURES.marketPriceAuto) return Response.json({ configured: false, found: false });
   try {
     return Response.json(await marketPrice(make, model, year));
   } catch (error) {

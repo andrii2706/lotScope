@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { auctionSearchLinks, filterLots, mapActiveLot, splitResults } from "../src/lib/shared/search.ts";
+import { activeFrom, auctionSearchLinks, filterLots, mapActiveLot, splitResults } from "../src/lib/shared/search.ts";
 
 const NOW = Date.parse("2026-10-12T12:00:00Z");
 const raw = {
@@ -71,4 +71,20 @@ test("AUTO.RIA: підбір моделі та статистика цін", asy
   assert.equal(matchModel(merc, "Mercedes-Benz", "C 300 4MATIC").value, 7);
   assert.deepEqual(statsFrom([14000, 0, 15000, 16000, 20000]), { used: 4, medianUsd: 15500, p25Usd: 14750, p75Usd: 17000 });
   assert.equal(statsFrom([14000]), null);
+});
+
+test("лот без дати аукціону лишається активним і бере поточний номер лота", () => {
+  const item = {
+    vin: "B1", make: "BMW", model: "3 Series", year: 2020,
+    history: [
+      { auction: "copart", lot_number: "111", sale_date: "2025-03-01", sale_status: "Sold", final_bid: 7000, odometer: 20000 },
+      { auction: "iaai", lot_number: "999", sale_status: "On sale", odometer: 21000, primary_damage: "Front End" },
+    ],
+  };
+  const lots = activeFrom({ data: [item] });
+  assert.equal(lots.length, 1);
+  assert.equal(lots[0].lotNumber, "999");
+  assert.equal(lots[0].auctionDate, "");
+  const { active } = splitResults({ data: [item] }, NOW);
+  assert.equal(active.length, 1);
 });

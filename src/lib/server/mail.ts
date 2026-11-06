@@ -1,6 +1,13 @@
 import type { Mail } from "@/types/system";
 const RESEND_URL = (process.env.RESEND_API_URL || "https://api.resend.com").replace(/\/+$/, "");
 
+const replyTo = () => (process.env.MAIL_REPLY_TO || "").trim();
+
+const footer = () =>
+  replyTo()
+    ? `Лист надіслано автоматично. Питання щодо доступу пишіть на ${replyTo()}.`
+    : "Лист надіслано автоматично, відповідати на нього не потрібно.";
+
 export const mailConfigured = () => Boolean(process.env.RESEND_API_KEY && process.env.MAIL_FROM);
 
 export async function sendMail(mail: Mail): Promise<boolean> {
@@ -13,7 +20,14 @@ export async function sendMail(mail: Mail): Promise<boolean> {
     const res = await fetch(`${RESEND_URL}/emails`, {
       method: "POST",
       headers: { authorization: `Bearer ${process.env.RESEND_API_KEY}`, "content-type": "application/json" },
-      body: JSON.stringify({ from: process.env.MAIL_FROM, to: [mail.to], subject: mail.subject, html: mail.html, text: mail.text }),
+      body: JSON.stringify({
+        from: process.env.MAIL_FROM,
+        to: [mail.to],
+        ...(replyTo() ? { reply_to: replyTo() } : {}),
+        subject: mail.subject,
+        html: mail.html,
+        text: mail.text,
+      }),
       signal: AbortSignal.timeout(15_000),
     });
     if (!res.ok) {
@@ -39,6 +53,8 @@ export function resetEmail(name: string, link: string, minutes: number): Omit<Ma
     link,
     "",
     "Якщо ви не просили скинути пароль, просто проігноруйте цей лист: пароль не зміниться.",
+    "",
+    footer(),
   ].join("\n");
   const html = `<!doctype html><html lang="uk"><body style="margin:0;background:#f3f4f7;font-family:Arial,Helvetica,sans-serif;color:#14171c">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="padding:32px 12px"><tr><td align="center">
@@ -47,6 +63,7 @@ export function resetEmail(name: string, link: string, minutes: number): Omit<Ma
 <tr><td style="font-size:15px;line-height:1.6">${escape(hello)}<br><br>Ви або хтось інший попросили скинути пароль до LotScope. Натисніть кнопку, щоб задати новий пароль. Посилання діє ${minutes} хвилин і спрацьовує один раз.</td></tr>
 <tr><td style="padding:24px 0"><a href="${escape(link)}" style="display:inline-block;background:#c8f542;color:#0a0c0f;text-decoration:none;font-weight:700;padding:14px 22px;border-radius:12px">Задати новий пароль</a></td></tr>
 <tr><td style="font-size:13px;line-height:1.6;color:#566070">Якщо кнопка не працює, скопіюйте посилання в браузер:<br><span style="word-break:break-all">${escape(link)}</span><br><br>Якщо ви не просили скинути пароль, просто проігноруйте цей лист: пароль не зміниться.</td></tr>
+<tr><td style="font-size:12px;line-height:1.6;color:#8a93a3;border-top:1px solid #e6e8ee;padding-top:16px;margin-top:16px">${escape(footer())}</td></tr>
 </table></td></tr></table></body></html>`;
   return { subject: "Скидання пароля LotScope", html, text };
 }

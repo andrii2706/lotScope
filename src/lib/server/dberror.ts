@@ -19,3 +19,35 @@ export function describeDbError(error: unknown): DbProblem | null {
   if (/^[0-9A-Z]{5}$/.test(code)) return { kind: "other", status: 500, message: GENERIC_MESSAGE, code };
   return null;
 }
+
+export function dbTarget(): string {
+  const raw = process.env.DATABASE_URL;
+  if (!raw) return "DATABASE_URL не задано";
+  try {
+    const u = new URL(raw);
+    return `${u.hostname}:${u.port || "5432"}${u.pathname}`;
+  } catch {
+    return "DATABASE_URL має неправильний формат";
+  }
+}
+
+const HINTS: Record<string, string> = {
+  ECONNREFUSED: "Postgres не запущений на цій адресі (локально: запустіть Docker Desktop і docker compose up -d)",
+  ENOTFOUND: "хост з DATABASE_URL не знайдено, перевірте адресу",
+  EAI_AGAIN: "хост з DATABASE_URL не знайдено, перевірте адресу або інтернет",
+  ETIMEDOUT: "база не відповідає, перевірте адресу, порт і мережу",
+  "28P01": "неправильний логін або пароль у DATABASE_URL",
+  "3D000": "бази з такою назвою не існує",
+};
+
+export function dbErrorDetail(error: unknown): string {
+  const parts = error instanceof AggregateError && error.errors.length ? error.errors : [error];
+  const text = parts
+    .map((e) => (e instanceof Error ? e.message : String(e)))
+    .filter(Boolean)
+    .join("; ");
+  const problem = describeDbError(error);
+  if (problem?.kind !== "connect") return text;
+  const hint = HINTS[problem.code] ?? "";
+  return `${text || problem.code} → ${dbTarget()}${hint ? ` (${hint})` : ""}`;
+}

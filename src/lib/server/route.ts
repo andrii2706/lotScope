@@ -1,4 +1,4 @@
-import { describeDbError } from "./dberror.ts";
+import { dbErrorDetail, describeDbError } from "./dberror.ts";
 import { GENERIC_MESSAGE } from "../shared/errors.ts";
 import { applySchemaOnce } from "./schema.ts";
 
@@ -14,7 +14,7 @@ function label(args: unknown[]): string {
 export async function errorResponse(error: unknown, where = "route"): Promise<Response> {
   const db = describeDbError(error);
   if (db) {
-    console.error(`[db] ${where}: ${db.kind} ${db.code}`, error instanceof Error ? error.message : error);
+    console.error(`[db] ${where}: ${db.kind} ${db.code}`, dbErrorDetail(error));
     if (db.kind === "schema") await applySchemaOnce();
     return Response.json({ error: db.message, code: db.kind === "connect" || db.kind === "schema" ? "unavailable" : db.kind }, { status: db.status });
   }

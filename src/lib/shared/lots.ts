@@ -2,7 +2,7 @@ import type { ActiveLot } from "@/types/auction";
 
 export function auctionTime(iso: string): { date: string; left: string } {
   const t = Date.parse(iso);
-  if (!Number.isFinite(t)) return { date: iso || "дата невідома", left: "" };
+  if (!Number.isFinite(t)) return { date: "дата ще не призначена", left: "" };
   const date = new Date(t).toLocaleString("uk-UA", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
   const diff = t - Date.now();
   if (diff <= 0) return { date, left: "торги йдуть" };

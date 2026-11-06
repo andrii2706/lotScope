@@ -1,6 +1,6 @@
 import pg from "pg";
 import { poolConfig } from "./dbssl.ts";
-import { describeDbError } from "./dberror.ts";
+import { dbErrorDetail, describeDbError } from "./dberror.ts";
 import { UNAVAILABLE_MESSAGE } from "../shared/errors.ts";
 
 const globalForPool = globalThis as unknown as { lotscopePool?: pg.Pool };
@@ -44,7 +44,7 @@ export const DB_DOWN_MESSAGE = UNAVAILABLE_MESSAGE;
 
 export function dbDown(error: unknown): Response {
   const db = describeDbError(error);
-  console.error(`[db] ${db?.kind ?? "error"} ${db?.code ?? ""}`, error instanceof Error ? error.message : error);
+  console.error(`[db] ${db?.kind ?? "error"} ${db?.code ?? ""}`, dbErrorDetail(error));
   return Response.json({ error: db?.message ?? UNAVAILABLE_MESSAGE, code: "unavailable" }, { status: db?.status ?? 503 });
 }
 

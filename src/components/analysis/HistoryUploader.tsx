@@ -7,7 +7,7 @@ import { userMessage } from "@/lib/shared/errors";
 import type { HistoryFile } from "@/types/report";
 
 export const MAX_HISTORY_FILES = 4;
-const MAX_PDF_BYTES = 10 * 1024 * 1024;
+const MAX_PDF_BYTES = 3 * 1024 * 1024;
 
 function readBase64(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -45,7 +45,7 @@ export function HistoryUploader({
       try {
         if (file.type === "application/pdf") {
           if (file.size > MAX_PDF_BYTES) {
-            setError(`${file.name}: PDF більший за 10 МБ.`);
+            setError(`${file.name}: PDF більший за 3 МБ. Збережіть звіт скриншотами сторінок.`);
             continue;
           }
           added.push({ name: file.name, mediaType: "application/pdf", data: await readBase64(file) });

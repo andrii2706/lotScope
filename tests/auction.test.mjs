@@ -157,3 +157,19 @@ test("декодер VIN: мапінг відповіді постачальни
   assert.equal(isEuPlant("Germany"), true);
   assert.equal(isEuPlant("United States"), false);
 });
+
+test("лот без дати аукціону мапиться з поточного запису, продажі беруться з датованих", () => {
+  const raw = {
+    data: {
+      vin: "WBA8Z9C50KB220000", make: "BMW", model: "330i", year: 2019,
+      history: [
+        { auction: "copart", lot_number: "111", sale_date: "2025-03-01", sale_status: "Sold", final_bid: 7000, odometer: 20000 },
+        { auction: "iaai", lot_number: "999", odometer: 21000, primary_damage: "Front End" },
+      ],
+    },
+  };
+  const mapped = mapProviderRecord(raw);
+  assert.equal(mapped.lot.lotNumber, "999");
+  assert.equal(mapped.lot.mileage, 21000);
+  assert.deepEqual(salePricesFrom({ data: [raw.data] }), [7000]);
+});

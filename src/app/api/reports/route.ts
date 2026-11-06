@@ -48,6 +48,7 @@ async function handlePOST(request: Request) {
     model: typeof input.model === "string" ? input.model.slice(0, 80) : "",
     comparables: input.comparables ?? null,
     historyFiles: Array.isArray(input.historyFiles) ? input.historyFiles.filter((v) => typeof v === "string").slice(0, 10) : [],
+    historyDocs: [],
     vinHistory: input.vinHistory ?? null,
   };
   const id = newId();

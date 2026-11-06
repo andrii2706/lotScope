@@ -1,4 +1,4 @@
-import { extractPhotos, newestHistory, priceStats, salePricesFrom } from "./auction.ts";
+import { extractPhotos, isSoldStatus, newestHistory, priceStats, salePricesFrom } from "./auction.ts";
 import { AUCTIONS, auctionFromProvider, auctionLotUrl } from "./auctions.ts";
 import type { ActiveLot, SearchFilters, AuctionName, PriceStats } from "@/types/auction";
 
@@ -82,8 +82,7 @@ export function mapActiveLot(input: unknown): ActiveLot | null {
 
 function isSold(raw: unknown): boolean {
   if (!isRec(raw)) return false;
-  const status = text(newestHistory(raw).sale_status).toLowerCase();
-  return /sold|продан/.test(status) && !/not|unsold|no sale|не продан/.test(status);
+  return isSoldStatus(newestHistory(raw).sale_status);
 }
 
 const compact = (v: string) => v.toLowerCase().replace(/[^a-z0-9]/g, "");

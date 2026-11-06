@@ -161,13 +161,14 @@ src/lib/roles.ts              ролі та матриця прав
 
 ## Розгортання на Vercel
 
-1. Створіть Postgres: Neon або Supabase (також через Vercel Marketplace). Для `DATABASE_URL` беріть pooled-рядок підключення.
-2. Один раз виконайте міграцію зі свого комп'ютера: `DATABASE_URL="<рядок>" npm run db:migrate`.
-3. Завантажте проєкт на GitHub і імпортуйте його у Vercel (Framework: Next.js, налаштування за замовчуванням).
-4. Схема бази створюється автоматично під час кожного білду на Vercel (`vercel.json` запускає `npm run vercel-build`, тобто міграцію, а потім `next build`). Змінна `DATABASE_URL` має бути задана для Production і Preview до першого деплою.
-5. У Settings → Environment Variables додайте змінні з `.env.example`: `DATABASE_URL`, `APP_URL` (адреса сайту, наприклад `https://lotscope.vercel.app`), `ANTHROPIC_API_KEY`, `ADMIN_EMAILS`, `GOOGLE_*`, `RESEND_API_KEY`, `MAIL_FROM` та інші потрібні. Після зміни змінних зробіть Redeploy.
-5. У Google Cloud додайте Redirect URI `APP_URL/api/auth/google/callback`.
-6. Ліміти Vercel: тіло запиту до функції до 4,5 МБ (тому фото стискаються, а великий PDF Carfax краще замінити скриншотами), тривалість аналізу до 120 с потребує увімкненого Fluid Compute або плану Pro.
+Повна інструкція: [docs/deploy.md](docs/deploy.md). Там усі змінні для Vercel, адреси для Google і Resend, DNS-записи домену і налаштування захисту Supabase та Vercel.
+
+Коротко:
+
+1. Створіть базу в Supabase. Для `DATABASE_URL` беріть Shared pooler у режимі Transaction (порт 6543).
+2. Імпортуйте репозиторій у Vercel (Framework: Next.js). Схема бази застосовується під час кожного білду (`npm run vercel-build`), тож `DATABASE_URL` має бути задана до першого деплою.
+3. Додайте змінні в Settings → Environment Variables і зробіть Redeploy.
+4. Ліміти Vercel: тіло запиту до функції до 4,5 МБ (тому фото стискаються, а великий PDF Carfax краще замінити скриншотами), аналіз до 120 с потребує Fluid Compute або тарифу Pro.
 
 ## Скидання пароля
 

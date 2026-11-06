@@ -113,10 +113,24 @@ function asNumber(v: unknown): number {
   return 0;
 }
 
-export function newestHistory(rec: Rec): Rec {
+function entryTime(h: Rec): number {
+  const t = Date.parse(asText(h.sale_date) || asText(h.auction_date) || asText(h.date));
+  return Number.isFinite(t) ? t : -Infinity;
+}
+
+export function isSoldStatus(status: unknown): boolean {
+  const s = asText(status).toLowerCase();
+  return /sold|продан/.test(s) && !/not|unsold|no sale|не продан/.test(s);
+}
+
+export function newestHistory(rec: Rec, datedOnly = false): Rec {
   const history = Array.isArray(rec.history) ? rec.history.filter(isRec) : [];
   if (history.length === 0) return {};
-  return [...history].sort((a, b) => String(b.sale_date ?? "").localeCompare(String(a.sale_date ?? "")))[0];
+  if (!datedOnly) {
+    const unscheduled = history.find((h) => entryTime(h) === -Infinity && !isSoldStatus(h.sale_status));
+    if (unscheduled) return unscheduled;
+  }
+  return [...history].sort((a, b) => entryTime(b) - entryTime(a))[0];
 }
 
 function engineCc(v: unknown): number {
@@ -247,7 +261,7 @@ export function salePricesFrom(raw: unknown, allowed?: AuctionName[]): number[] 
   const prices: number[] = [];
   for (const item of list) {
     if (!isRec(item)) continue;
-    const h = newestHistory(item);
+    const h = newestHistory(item, true);
     if (allowed) {
       const a = auctionFromProvider(asText(pick(h, ["auction", "auction_name"]) ?? pick(item, ["auction_name", "auction"])));
       if (a && !allowed.includes(a)) continue;

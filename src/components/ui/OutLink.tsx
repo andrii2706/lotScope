@@ -39,15 +39,22 @@ export function OutLink({ link, className }: { link: OutboundLink; className?: s
   const onClick = () => {
     if (!link.copy) return;
     const value = link.copy;
+    const vpn = link.note ? " Сайт відкривається з України лише через VPN (США)." : "";
     void copyText(value).then((ok) =>
-      setNote(ok ? `VIN ${value} скопійовано. Вставте його в поле пошуку на сайті ${link.label}.` : `Вставте на сайті ${link.label} VIN ${value}.`),
+      setNote(
+        (ok ? `VIN ${value} скопійовано. Вставте його в поле пошуку на сайті ${link.label}.` : `Вставте на сайті ${link.label} VIN ${value}.`) + vpn,
+      ),
     );
   };
 
   return (
     <>
       <a href={link.href} target="_blank" rel="noopener noreferrer" onClick={onClick} className={className}>
-        {link.label} <ExternalLink className="size-3.5" />
+        {link.label}
+        {link.note && (
+          <span className="inline-block rounded-full border border-warn/25 bg-warn-bg px-1.5 py-px text-[10px] font-semibold leading-4 text-warn">{link.note}</span>
+        )}
+        <ExternalLink className="size-3.5" />
       </a>
       {note &&
         createPortal(

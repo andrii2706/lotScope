@@ -154,6 +154,18 @@ export interface CostOverrides {
   marketPriceUsd?: number;
 }
 
+export interface HistoryDoc {
+  name: string;
+  mediaType: HistoryMediaType;
+  url: string;
+}
+
+export interface StoredHistoryDoc {
+  n: number;
+  name: string;
+  mediaType: HistoryMediaType;
+}
+
 export interface Report {
   id: string;
   createdAt: string;
@@ -165,6 +177,7 @@ export interface Report {
   model: string;
   comparables?: Comparables | null;
   historyFiles?: string[];
+  historyDocs?: HistoryDoc[];
   vinHistory?: VinHistory | null;
   expert?: ExpertReview;
   partsSearch?: PartsSearch;
