@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { Copyright } from "./Copyright";
 import { Logo } from "./Logo";
 
 export function Sidebar({ nav, account }: { nav: ReactNode; account: ReactNode }) {
@@ -8,7 +9,10 @@ export function Sidebar({ nav, account }: { nav: ReactNode; account: ReactNode }
       <nav aria-label="Основна навігація" className="min-h-0 flex-1 overflow-y-auto">
         {nav}
       </nav>
-      {account}
+      <div>
+        {account}
+        <Copyright className="mt-3 px-1" />
+      </div>
     </aside>
   );
 }

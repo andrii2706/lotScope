@@ -32,7 +32,7 @@ workspace, the company's own rates, and a report under the company's brand.
 A working MVP. Verified:
 
 - build, lint and type check pass;
-- 56 tests pass (`npm test`): calculations, VIN checks, lot query parsing, provider mapping, lot search, VIN history, roles, password hashing, reset mail, DB SSL config and history file validation;
+- 57 tests pass (`npm test`): calculations, VIN checks, lot query parsing, provider mapping, lot search, VIN history, roles, password hashing, reset mail, DB SSL config and history file validation;
 - the full flow in a browser on desktop and phone: form → analysis → report → editing
   amounts → print to PDF → history → settings;
 - real AI analysis with an API key works: the first real lot (2018 BMW 330i GT xDrive,
@@ -125,18 +125,18 @@ src/app/                     routes only (page.tsx, layout.tsx, error.tsx, globa
   login/ invite/[token]/ forgot-password/ reset-password/
   api/**/route.ts            handlers exported as `export const GET = route(handleGET)`
 src/components/
-  layout/                    AppShell (session guard, theme vars), Sidebar, MobileNav, NavList (with skeleton), UserBlock, AuthLayout, Logo
+  layout/                    AppShell (session guard, theme vars), Sidebar, MobileNav, NavList (with skeleton), UserBlock, AuthLayout, Logo, Copyright
   ui/                        Button, Card, Field, NumberInput, Notice, PageHeader, Segmented, Select, StepCard, StatTile, Combobox, ConfirmDialog, Lightbox, OutLink; index.ts re-exports them
   auth/                      AuthForm, GoogleButton
   analysis/                  LotFinder, PhotoUploader, HistoryUploader, VinHistoryPanel, VinDecodeButton, MarketPrice
   report/                    CostTable, PrintReport, ScoreRing, ExpertReviewCard, HistoryMarket, HistoryDocs, PartsPrices, ReportBlocks (Block, Kpi, Fact, ListBlock, EditField), reportStyles
   admin/                     AuditList, AdminLog, CompanyTable, CreateCompany
   search/                    RunBadge
-src/config/                  features (FEATURES switches), navigation (NAV, auth pages, photo), analysis (form options, loading stages), settings (sections, region rows, accents), search (default filters), auth (Google error texts)
+src/config/                  brand (copyright owner and start year), features (FEATURES switches), navigation (NAV, auth pages, photo), analysis (form options, loading stages), settings (sections, region rows, accents), search (default filters), auth (Google error texts)
 src/types/                   report (LotInput, Analysis, Settings, Report…), auction, vin, pricing, auth (Role, Permission, CurrentUser, Me…), admin, team, system, ui
 src/lib/server/              auth, db, dbssl, dberror, schema, route, http (fail/readJson/text), scope, members, audit, superadmin, google, password, mail, provider, autoria, reports, prompt, normalize, demo
 src/lib/client/              api, me, store, rates (useRates/useCostSettings), lessons, theme, images, useVinHistory, navigation (safeNext)
-src/lib/shared/              calc, auctionFees, auctions, auction, search, lots, vin, vinDecode, vinhistory, partsPricing, rates, autoriaMatch, roles, labels, auditLabels, errors, defaults, cars, color, lessons, overrides, expertStats, time
+src/lib/shared/              calc, auctionFees, auctions, auction, search, lots, vin, vinDecode, vinhistory, partsPricing, rates, autoriaMatch, roles, labels, auditLabels, errors, defaults, cars, color, lessons, overrides, expertStats, time, copyright
 src/proxy.ts                 redirects pages without a session cookie to /login
 tests/*.test.mjs             node:test suites importing src/lib/shared and src/lib/server files directly
 db/schema.sql                database schema; scripts/migrate.mjs and lib/server/schema.ts apply it
@@ -224,6 +224,7 @@ Known simplifications:
 - `src/config/features.ts` holds `FEATURES` (code switches, change and redeploy): `marketPriceAuto` (AUTO.RIA market price) and `vinHistoryAuto` (automatic VIN history: VinAudit + provider auction history). Both are `false` since 2026-11-07 because they cost money: the form hides `MarketPrice` and `VinHistoryPanel`, `useVinHistory` does not call the API, `/api/market` answers `configured: false`, `/api/history` POST answers `configured: false` and GET returns `enabled`. Step 5 of the form is then "Звіт Carfax чи AutoCheck" with only `HistoryUploader`.
 - Carfax/AutoCheck files are stored with the report: after `POST /api/reports` the client (`attachHistoryDocs` in `store.ts`) sends each file to `POST /api/reports/[id]/file` (author only, max 4, one file per request to stay under the Vercel 4.5 MB body limit, PDF up to 3 MB in `HistoryUploader`). `parseHistoryDoc` (`lib/server/reports.ts`) checks the declared type against magic bytes (PDF, JPEG, PNG, WEBP) and cleans the name. Rows go to `report_files`, metadata `{n, name, mediaType}` is appended to `reports.body.historyDocs`, and `rowToReport` turns it into `historyDocs: [{name, mediaType, url}]`. `GET /api/reports/[id]/file/[n]` serves the file with the report scope check, `nosniff` and `content-disposition: inline`. Unsaved reports keep data URLs and open them as blobs (`components/report/HistoryDocs.tsx`). New reports start with `historyDocs: []`, so a name in `historyFiles` without a stored doc is shown as "не вдалося зберегти"; old reports without `historyDocs` show nothing.
 - `next.config.ts` adds security headers to every response (HSTS, `X-Frame-Options: DENY`, CSP `frame-ancestors 'none'; base-uri 'self'`, `nosniff`, Referrer-Policy, Permissions-Policy, `X-Robots-Tag: noindex`) and `poweredByHeader: false`; `app/robots.ts` disallows everything and `proxy.ts` skips `robots.txt`. Do not add a strict CSP without testing the theme boot script and the PDF viewer.
+- Copyright «© ТОВ «ПАВ ІТ», 2026» (`Copyright` component, text from `config/brand.ts`, year range via `copyrightText`) is shown under the auth form (`AuthLayout`) and under the account block in `Sidebar` and `MobileNav`. It is deliberately not in the client PDF report, which carries the client company's brand.
 - `.env.production.example` is the template of production variables to paste into Vercel.
 
 ## Market and parts prices
@@ -247,6 +248,7 @@ If you change the schema, update `types/report.ts` (`Analysis`), `normalize.ts` 
 
 A light business SaaS interface by default (mocks: Design artifact "LotScope — нові моки UI"), a dark theme on demand, a light document on paper.
 
+- Auth pages: the right half is the cars photo only (`AUTH_PHOTO` as a CSS background, so a blocked image leaves a dark panel instead of a broken-image icon), no text over it.
 - Layout: `AppShell` renders a 248px white sidebar on `lg+` and a 56px top bar with a drawer below it; content is `max-w-[1180px]`. The sidebar is always rendered on app pages: while `/api/auth/me` loads it shows a skeleton, if it fails it keeps the shell, shows a notice and retries every 5 s, and without a session it redirects to `/login`. Page content renders only once the user is known. Auth pages (`/login`, `/invite`, `/forgot-password`, `/reset-password`) use `AuthLayout` (form left, photo right, no theme toggle).
 - No native dropdowns: use `Select` (`components/ui/Select.tsx`: button with `role="combobox"`, listbox rendered in a portal with fixed position so cards with `overflow-hidden` do not clip it, flips upward near the bottom, keyboard: arrows, Home/End, Enter/Space, Escape, type-ahead) instead of `<select>`, and `Combobox` (`minChars={0}` shows the whole list on focus) instead of `<datalist>`. `.control` sets `background-color`, never the `background` shorthand.
 - External links go through `OutLink` (`components/ui/OutLink.tsx`, type `OutboundLink`). Carfax and AutoCheck are geo-blocked from Ukraine and have no working deep link by VIN, so `lib/shared/historySites.ts` points to VIN-entry pages, marks them `note: "VPN США"` (shown as a badge) and lists carVertical and ClearVIN first because they work from Ukraine. Every history link sets `copy: vin`: the click copies the VIN and shows a short toast. Never link to `Report.cfx?vin=` or `autocheck.com/vehiclehistory/?vin=`.
