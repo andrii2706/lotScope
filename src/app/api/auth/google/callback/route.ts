@@ -22,10 +22,13 @@ async function resolve(profile: GoogleProfile, invite: string): Promise<Outcome>
   if (invite) {
     return tx<Outcome>(async (c) => {
       const inv = await c.query<{ company_id: string; role: string; team_id: string | null }>(
-        "update invites set used_at = now() where token_hash = $1 and used_at is null and expires_at > now() returning company_id, role, team_id",
-        [sha256(invite)],
+        "update invites set used_at = now() where token_hash = $1 and used_at is null and expires_at > now() and (email is null or email = $2) returning company_id, role, team_id",
+        [sha256(invite), profile.email],
       );
-      if (!inv.rows[0]) return { error: "invite" };
+      if (!inv.rows[0]) {
+        const other = await c.query("select 1 from invites where token_hash = $1 and used_at is null and expires_at > now()", [sha256(invite)]);
+        return { error: other.rowCount ? "wrong_email" : "invite" };
+      }
       await c.query(
         "insert into users (id, email, name, password_hash, google_sub, company_id, role, team_id) values ($1, $2, $3, null, $4, $5, $6, $7)",
         [userId, profile.email, profile.name, profile.sub, inv.rows[0].company_id, inv.rows[0].role, inv.rows[0].team_id],

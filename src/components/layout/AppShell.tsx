@@ -62,6 +62,7 @@ export function AppShell({ children }: { children: ReactNode }) {
     "--accent": settings.accentColor,
     "--accent-ink": accentInk(settings.accentColor),
     "--accent-text": accentText(settings.accentColor, theme),
+    "--accent-text-print": accentText(settings.accentColor, "light"),
   } as CSSProperties;
 
   if (bare) return <AuthLayout style={style}>{children}</AuthLayout>;

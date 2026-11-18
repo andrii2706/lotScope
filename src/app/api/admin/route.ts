@@ -1,7 +1,7 @@
 import { audit } from "@/lib/server/audit";
-import { newId } from "@/lib/server/auth";
+import { newId, normalizeEmail } from "@/lib/server/auth";
 import { query } from "@/lib/server/db";
-import { createInvite, INVITE_DAYS } from "@/lib/server/members";
+import { inviteByEmail } from "@/lib/server/members";
 import { fail, readJson, text } from "@/lib/server/http";
 import { requireSuperadmin } from "@/lib/server/superadmin";
 import { route } from "@/lib/server/route";
@@ -36,7 +36,7 @@ async function handlePOST(request: Request) {
   const admin = await requireSuperadmin();
   if (admin instanceof Response) return admin;
   const body = await readJson<{
-    action?: string; companyId?: string; name?: string;
+    action?: string; companyId?: string; name?: string; email?: string;
   }>(request);
   const companyId = text(body?.companyId, 40);
   const labelOf = async (id: string) => (await query<{ name: string }>("select name from companies where id = $1", [id]))[0]?.name ?? id;
@@ -45,11 +45,16 @@ async function handlePOST(request: Request) {
     case "createCompany": {
       const name = text(body.name, 120);
       if (!name) return fail(400, "Вкажіть назву компанії.");
+      const email = normalizeEmail(body.email);
+      if (!email) return fail(400, "Вкажіть пошту адміністратора компанії.");
+      if ((await query("select 1 from users where email = $1", [email])).length) return fail(409, "Людина з такою поштою вже має доступ до LotScope.");
       const id = newId();
       await query("insert into companies (id, name, kind) values ($1, $2, 'team')", [id, name]);
-      const made = await createInvite(id, "admin", admin.id);
+      const sent = await inviteByEmail({ request, companyId: id, role: "admin", createdBy: admin.id, inviterName: admin.name, email });
       await audit(admin, "company_create", name, "", id);
-      return Response.json({ id, inviteUrl: `${new URL(request.url).origin}/invite/${made.token}`, days: INVITE_DAYS });
+      if ("error" in sent) return fail(sent.status, sent.error);
+      await audit(admin, "invite_create", "admin", `${email}${sent.emailed ? "" : " (лист не надіслано)"}`, id);
+      return Response.json({ id, inviteUrl: sent.url, ...sent });
     }
   }
 

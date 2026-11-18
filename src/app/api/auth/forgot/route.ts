@@ -2,7 +2,7 @@ import { audit } from "@/lib/server/audit";
 import { newToken, normalizeEmail, sha256 } from "@/lib/server/auth";
 import { dbConfigured, dbMissing, query } from "@/lib/server/db";
 import { resetEmail, sendMail } from "@/lib/server/mail";
-import { fail, readJson } from "@/lib/server/http";
+import { appUrl, fail, readJson } from "@/lib/server/http";
 import { route } from "@/lib/server/route";
 
 const TTL_MINUTES = 60;
@@ -21,11 +21,6 @@ function limited(key: string, limit: number): boolean {
   }
   hits.set(key, { count: 1, until: now + WINDOW });
   return false;
-}
-
-function appUrl(request: Request): string {
-  const configured = (process.env.APP_URL || "").replace(/\/+$/, "");
-  return configured || new URL(request.url).origin;
 }
 
 const DONE = { ok: true, message: "Якщо акаунт з такою поштою існує, ми надіслали на неї лист із посиланням для скидання пароля." };

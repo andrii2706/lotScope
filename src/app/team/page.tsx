@@ -1,12 +1,13 @@
 "use client";
 
 import { Button, Notice, PageHeader, Select, confirmDialog } from "@/components/ui";
-import { Copy, Link2, Plus, Power, Trash2, Users } from "lucide-react";
+import { Plus, Power, Send, Trash2, Users } from "lucide-react";
 import { useEffect, useState } from "react";
 import { api } from "@/lib/client/api";
 import { ROLE_LABEL, refreshMe, useMe } from "@/lib/client/me";
 import { userMessage } from "@/lib/shared/errors";
-import type { InviteRole, TeamData, TeamMember } from "@/types/team";
+import { InviteResultBox, PendingInvites } from "@/components/team/InviteResultBox";
+import type { InviteResult, InviteRole, TeamData, TeamMember } from "@/types/team";
 
 const ROLE_OPTIONS = (["lead", "manager", "expert"] as const).map((r) => ({ value: r, label: ROLE_LABEL[r] }));
 
@@ -19,8 +20,8 @@ export default function TeamPage() {
   const [inviteTeam, setInviteTeam] = useState("");
   const [teamName, setTeamName] = useState("");
   const [companyName, setCompanyName] = useState("");
-  const [link, setLink] = useState("");
-  const [copied, setCopied] = useState(false);
+  const [inviteEmail, setInviteEmail] = useState("");
+  const [result, setResult] = useState<InviteResult | null>(null);
 
   useEffect(() => {
     let alive = true;
@@ -45,7 +46,7 @@ export default function TeamPage() {
   async function call(method: "POST" | "PATCH" | "DELETE", body: Record<string, unknown>) {
     setError("");
     try {
-      const r = await api<{ url?: string }>("/api/team", { method, body });
+      const r = await api<Partial<InviteResult>>("/api/team", { method, body });
       reload();
       void refreshMe();
       return r;
@@ -56,11 +57,13 @@ export default function TeamPage() {
   }
 
   async function invite() {
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(inviteEmail.trim())) return setError("Вкажіть пошту людини, якій надсилаєте запрошення.");
     if (!lead && role === "lead" && !inviteTeam) return setError("Оберіть команду для керівника.");
-    const r = await call("POST", lead ? { role: "manager" } : { role, teamId: role === "expert" ? null : inviteTeam || null });
+    const email = inviteEmail.trim();
+    const r = await call("POST", lead ? { role: "manager", email } : { role, email, teamId: role === "expert" ? null : inviteTeam || null });
     if (r?.url) {
-      setLink(r.url);
-      setCopied(false);
+      setResult(r as InviteResult);
+      setInviteEmail("");
     }
   }
 
@@ -147,6 +150,17 @@ export default function TeamPage() {
         <section className="card mb-5 p-5 sm:p-6">
           <h2 className="text-base font-semibold">{lead ? "Запросити менеджера" : "Запросити людину"}</h2>
           <div className="mt-3 flex flex-wrap items-end gap-3">
+            <label className="w-full sm:w-72">
+              <span className="mb-1.5 block text-[13px] font-medium text-ink">Пошта</span>
+              <input
+                className="control"
+                type="email"
+                autoComplete="off"
+                aria-invalid={error.includes("пошту")}
+                value={inviteEmail}
+                onChange={(e) => setInviteEmail(e.target.value)}
+              />
+            </label>
             {!lead && (
               <>
                 <label className="w-full sm:w-60">
@@ -167,32 +181,16 @@ export default function TeamPage() {
               </>
             )}
             <Button onClick={invite}>
-              <Link2 className="size-4" /> Створити посилання
+              <Send className="size-4" /> Надіслати запрошення
             </Button>
           </div>
-          {link && (
-            <div className="mt-4 flex flex-wrap items-center gap-2 rounded-xl border border-line2 bg-paper p-3">
-              <code className="min-w-0 flex-1 truncate text-sm">{link}</code>
-              <Button
-                variant="secondary"
-                onClick={async () => {
-                  await navigator.clipboard.writeText(link);
-                  setCopied(true);
-                }}
-              >
-                <Copy className="size-4" /> {copied ? "Скопійовано" : "Копіювати"}
-              </Button>
-              <p className="w-full text-xs text-muted">Посилання одноразове і діє 7 днів. Людина зареєструється паролем або через Google і одразу потрапить у потрібну команду.</p>
-            </div>
-          )}
-          {data.invites.length > 0 && (
-            <p className="mt-4 flex flex-wrap items-center gap-3 text-sm text-muted">
-              Відкритих запрошень: {data.invites.length}
-              <button type="button" onClick={() => call("DELETE", { invite: true })} className="font-semibold text-bad hover:underline">
-                Скасувати всі
-              </button>
-            </p>
-          )}
+          {result && <InviteResultBox result={result} note="Після входу людина одразу потрапить у потрібну команду." />}
+          <PendingInvites
+            invites={data.invites}
+            roleLabel={(r) => ROLE_LABEL[r as keyof typeof ROLE_LABEL] ?? r}
+            teamLabel={(t) => teamName_(t ?? null)}
+            onCancel={() => call("DELETE", { invite: true })}
+          />
         </section>
       )}
 

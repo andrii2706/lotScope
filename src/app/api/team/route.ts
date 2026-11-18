@@ -1,7 +1,7 @@
 import { audit } from "@/lib/server/audit";
 import { newId, requireUser } from "@/lib/server/auth";
 import { query } from "@/lib/server/db";
-import { INVITE_DAYS, activateUser, cancelInvites, changeRole, createInvite, deactivateUser, findTarget, removeUser, setTeam } from "@/lib/server/members";
+import { activateUser, cancelInvites, changeRole, deactivateUser, findTarget, inviteByEmail, removeUser, setTeam } from "@/lib/server/members";
 import { INVITABLE_BY_ADMIN, INVITABLE_BY_LEAD } from "@/lib/shared/roles";
 import { fail, readJson, text } from "@/lib/server/http";
 import { route } from "@/lib/server/route";
@@ -45,8 +45,8 @@ async function handleGET() {
     "select id, name from teams where company_id = $1 and ($2::text is null or id = $2) order by name",
     [user.companyId, team],
   );
-  const invites = await query<{ role: string; team_id: string | null; expires_at: Date }>(
-    "select role, team_id, expires_at from invites where company_id = $1 and used_at is null and expires_at > now() and ($2::text is null or team_id = $2) order by created_at desc",
+  const invites = await query<{ role: string; email: string | null; team_id: string | null; expires_at: Date }>(
+    "select role, email, team_id, expires_at from invites where company_id = $1 and used_at is null and expires_at > now() and ($2::text is null or team_id = $2) order by created_at desc",
     [user.companyId, team],
   );
   return Response.json({ members, teams, invites, companyName: user.companyName, lead: team !== null, teamId: team });
@@ -55,7 +55,7 @@ async function handleGET() {
 async function handlePOST(request: Request) {
   const user = await requireUser("team");
   if (user instanceof Response) return user;
-  const body = await readJson<{ action?: string; role?: string; teamId?: string; name?: string }>(request);
+  const body = await readJson<{ action?: string; role?: string; teamId?: string; name?: string; email?: string }>(request);
   const team = leadTeam(user);
 
   if (body?.action === "createTeam") {
@@ -79,9 +79,10 @@ async function handlePOST(request: Request) {
     teamId = await teamOf(user.companyId, body?.teamId);
     if (role === "lead" && !teamId) return fail(400, "Оберіть команду для керівника.");
   }
-  const made = await createInvite(user.companyId, role, user.id, role === "expert" ? null : teamId);
-  await audit(user, "invite_create", role);
-  return Response.json({ url: `${new URL(request.url).origin}/invite/${made.token}`, role, days: INVITE_DAYS });
+  const sent = await inviteByEmail({ request, companyId: user.companyId, role, createdBy: user.id, inviterName: user.name, teamId: role === "expert" ? null : teamId, email: body?.email });
+  if ("error" in sent) return fail(sent.status, sent.error);
+  await audit(user, "invite_create", role, `${sent.email}${sent.emailed ? "" : " (лист не надіслано)"}`);
+  return Response.json({ ...sent, role });
 }
 
 async function handlePATCH(request: Request) {

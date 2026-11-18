@@ -12,3 +12,8 @@ export async function readJson<T>(request: Request): Promise<T | null> {
 }
 
 export const text = (v: unknown, max: number) => (typeof v === "string" ? v.trim().slice(0, max) : "");
+
+export function appUrl(request: Request): string {
+  const configured = (process.env.APP_URL || "").replace(/\/+$/, "");
+  return configured || new URL(request.url).origin;
+}

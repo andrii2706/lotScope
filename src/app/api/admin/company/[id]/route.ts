@@ -1,6 +1,6 @@
 import { audit } from "@/lib/server/audit";
 import { query } from "@/lib/server/db";
-import { INVITE_DAYS, cancelInvites, createInvite, removeUser } from "@/lib/server/members";
+import { cancelInvites, inviteByEmail, removeUser } from "@/lib/server/members";
 import { INVITABLE_BY_SUPERADMIN } from "@/lib/shared/roles";
 import { fail, readJson, text } from "@/lib/server/http";
 import { requireSuperadmin } from "@/lib/server/superadmin";
@@ -30,7 +30,7 @@ async function handleGET(_request: Request, { params }: Ctx) {
        from users u where u.company_id = $1 order by u.created_at`,
     [id],
   );
-  const invites = await query<{ role: string; expires_at: Date }>("select role, expires_at from invites where company_id = $1 and used_at is null and expires_at > now() order by created_at desc", [id]);
+  const invites = await query<{ role: string; email: string | null; expires_at: Date }>("select role, email, expires_at from invites where company_id = $1 and used_at is null and expires_at > now() order by created_at desc", [id]);
   const log = await query<{ id: string; actor: string; role: string; action: string; target: string; detail: string; created_at: Date }>(
     "select id::text, actor, role, action, target, detail, created_at from audit_log where company_id = $1 order by created_at desc limit 60",
     [id],
@@ -50,7 +50,7 @@ async function handlePOST(request: Request, { params }: Ctx) {
   const admin = await requireSuperadmin();
   if (admin instanceof Response) return admin;
   const { id } = await params;
-  const body = await readJson<{ action?: string; userId?: string; role?: string }>(request);
+  const body = await readJson<{ action?: string; userId?: string; role?: string; email?: string }>(request);
   const exists = (await query<{ name: string }>("select name from companies where id = $1", [id]))[0];
   if (!exists) return fail(404, "Компанію не знайдено.");
   const userId = text(body?.userId, 40);
@@ -59,9 +59,10 @@ async function handlePOST(request: Request, { params }: Ctx) {
   switch (body?.action) {
     case "invite": {
       const role = INVITABLE_BY_SUPERADMIN.find((r) => r === body.role) ?? "manager";
-      const made = await createInvite(id, role, admin.id);
-      await audit(admin, "invite_create", role, exists.name, id);
-      return Response.json({ url: `${new URL(request.url).origin}/invite/${made.token}`, days: INVITE_DAYS });
+      const sent = await inviteByEmail({ request, companyId: id, role, createdBy: admin.id, inviterName: admin.name, email: body.email });
+      if ("error" in sent) return fail(sent.status, sent.error);
+      await audit(admin, "invite_create", role, `${sent.email}${sent.emailed ? "" : " (лист не надіслано)"}`, id);
+      return Response.json(sent);
     }
     case "cancelInvites":
       await cancelInvites(id);

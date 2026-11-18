@@ -7,10 +7,11 @@ import { GoogleButton } from "@/components/auth/GoogleButton";
 import { Notice } from "@/components/ui";
 import { ROLE_LABEL } from "@/lib/client/me";
 import { userMessage } from "@/lib/shared/errors";
+import type { Role } from "@/types/auth";
 
 export default function InvitePage() {
   const { token } = useParams<{ token: string }>();
-  const [invite, setInvite] = useState<{ companyName: string; role: "admin" | "manager" | "expert" } | null>(null);
+  const [invite, setInvite] = useState<{ companyName: string; role: Role; email: string } | null>(null);
   const [error, setError] = useState("");
 
   useEffect(() => {
@@ -44,7 +45,9 @@ export default function InvitePage() {
       social={<GoogleButton invite={token} label="Приєднатися через Google" />}
       fields={[
         { name: "name", label: "Ваше ім'я", autoComplete: "name" },
-        { name: "email", label: "Email", type: "email", autoComplete: "email" },
+        invite.email
+          ? { name: "email", label: "Email", type: "email", autoComplete: "email", defaultValue: invite.email, readOnly: true, hint: "Запрошення надіслано на цю пошту. Через Google входьте з цією ж поштою." }
+          : { name: "email", label: "Email", type: "email", autoComplete: "email" },
         { name: "password", label: "Пароль", type: "password", autoComplete: "new-password", hint: "Щонайменше 10 символів." },
       ]}
       onDone={() => goTo("/")}

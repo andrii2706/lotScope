@@ -1,7 +1,7 @@
 "use client";
 
 import { Button, Notice, PageHeader, Select, confirmDialog } from "@/components/ui";
-import { ArrowLeft, Copy, Link2, Trash2 } from "lucide-react";
+import { ArrowLeft, Send, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -10,7 +10,9 @@ import { stamp } from "@/lib/shared/labels";
 import { api } from "@/lib/client/api";
 import { ROLE_LABEL } from "@/lib/shared/roles";
 import { userMessage } from "@/lib/shared/errors";
+import { InviteResultBox, PendingInvites } from "@/components/team/InviteResultBox";
 import type { CompanyDetail } from "@/types/admin";
+import type { InviteResult } from "@/types/team";
 
 export default function CompanyPage() {
   const { id } = useParams<{ id: string }>();
@@ -19,8 +21,8 @@ export default function CompanyPage() {
   const [error, setError] = useState("");
   const [version, setVersion] = useState(0);
   const [role, setRole] = useState("manager");
-  const [link, setLink] = useState("");
-  const [copied, setCopied] = useState(false);
+  const [inviteEmail, setInviteEmail] = useState("");
+  const [result, setResult] = useState<InviteResult | null>(null);
 
   useEffect(() => {
     let alive = true;
@@ -37,10 +39,10 @@ export default function CompanyPage() {
   async function member(body: Record<string, unknown>) {
     setError("");
     try {
-      const r = await api<{ url?: string }>(`/api/admin/company/${id}`, { body });
+      const r = await api<Partial<InviteResult>>(`/api/admin/company/${id}`, { body });
       if (r.url) {
-        setLink(r.url);
-        setCopied(false);
+        setResult(r as InviteResult);
+        setInviteEmail("");
       }
       reload();
     } catch (e) {
@@ -121,30 +123,22 @@ export default function CompanyPage() {
               <span className="mb-1.5 block text-[13px] font-medium text-ink">Роль</span>
               <Select value={role} onChange={setRole} options={(["admin", "manager", "expert"] as const).map((r) => ({ value: r, label: ROLE_LABEL[r] }))} />
             </label>
-            <Button onClick={() => member({ action: "invite", role })}>
-              <Link2 className="size-4" /> Створити профіль
-            </Button>
-            {d.invites.length > 0 && (
-              <button type="button" onClick={() => member({ action: "cancelInvites" })} className="text-sm font-bold text-bad hover:underline">
-                Скасувати запрошення ({d.invites.length})
-              </button>
-            )}
-          </div>
-        )}
-        {link && (
-          <div className="mt-4 flex flex-wrap items-center gap-2 rounded-xl border border-line2 bg-paper p-3">
-            <code className="min-w-0 flex-1 truncate text-sm">{link}</code>
+            <label className="min-w-60 flex-1">
+              <span className="mb-1.5 block text-[13px] font-medium text-ink">Пошта</span>
+              <input className="control" type="email" autoComplete="off" value={inviteEmail} onChange={(e) => setInviteEmail(e.target.value)} />
+            </label>
             <Button
-              variant="secondary"
-              onClick={async () => {
-                await navigator.clipboard.writeText(link);
-                setCopied(true);
+              onClick={() => {
+                if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(inviteEmail.trim())) return setError("Вкажіть пошту людини, якій надсилаєте запрошення.");
+                void member({ action: "invite", role, email: inviteEmail.trim() });
               }}
             >
-              <Copy className="size-4" /> {copied ? "Скопійовано" : "Копіювати"}
+              <Send className="size-4" /> Надіслати запрошення
             </Button>
           </div>
         )}
+        {result && <InviteResultBox result={result} />}
+        {team && <PendingInvites invites={d.invites} roleLabel={(r) => ROLE_LABEL[r as keyof typeof ROLE_LABEL] ?? r} onCancel={() => member({ action: "cancelInvites" })} />}
         <ul className="mt-4 divide-y divide-line">
           {d.members.map((m) => (
             <li key={m.id} className="flex flex-wrap items-center gap-3 py-3">

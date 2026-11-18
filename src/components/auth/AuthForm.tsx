@@ -29,7 +29,7 @@ export function AuthForm({
   social?: ReactNode;
   onDone: () => void;
 }) {
-  const [values, setValues] = useState<Record<string, string>>({});
+  const [values, setValues] = useState<Record<string, string>>(() => Object.fromEntries(fields.filter((f) => f.defaultValue).map((f) => [f.name, f.defaultValue ?? ""])));
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [invalid, setInvalid] = useState<Record<string, string>>({});
@@ -81,6 +81,7 @@ export function AuthForm({
               name={f.name}
               type={f.type ?? "text"}
               autoComplete={f.autoComplete}
+              readOnly={f.readOnly}
               required
               aria-invalid={Boolean(invalid[f.name])}
               aria-describedby={invalid[f.name] ? `${f.name}-error` : undefined}

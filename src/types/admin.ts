@@ -1,3 +1,4 @@
+import type { PendingInvite } from "@/types/team";
 import type { Role } from "./auth";
 
 export type CompanyKind = "team" | "personal";
@@ -48,7 +49,7 @@ export interface CompanyMember {
 export interface CompanyDetail {
   company: { id: string; name: string; kind: CompanyKind; created_at: string };
   members: CompanyMember[];
-  invites: { role: string; expires_at: string }[];
+  invites: PendingInvite[];
   log: AuditEntry[];
   stats: { month: string; analyses: string; unlocks: string; reports: string; pdfs: string };
 }

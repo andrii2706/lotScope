@@ -23,7 +23,7 @@ export interface TeamRef {
 export interface TeamData {
   members: TeamMember[];
   teams: TeamRef[];
-  invites: { role: string; team_id: string | null; expires_at: string }[];
+  invites: PendingInvite[];
   companyName: string;
   lead: boolean;
   teamId: string | null;
@@ -47,4 +47,18 @@ export interface ActivityMember {
 export interface ActivityData {
   members: ActivityMember[];
   log: (AuditEntry & { user_id: string | null })[];
+}
+
+export interface PendingInvite {
+  role: string;
+  email: string | null;
+  team_id?: string | null;
+  expires_at: string;
+}
+
+export interface InviteResult {
+  url: string;
+  days: number;
+  email: string;
+  emailed: boolean;
 }

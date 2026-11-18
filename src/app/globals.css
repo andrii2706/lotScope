@@ -138,6 +138,12 @@ h3 {
 .control[aria-invalid="true"] {
   border-color: var(--bad);
 }
+.control[readonly] {
+  background-color: var(--panel-2);
+  color: var(--muted);
+  cursor: default;
+}
+
 .control::placeholder {
   color: var(--faint);
   font-weight: 400;
@@ -214,7 +220,8 @@ h3 {
 }
 
 @media print {
-  :root {
+  :root,
+  :root[data-theme="dark"] {
     --paper: #f4f5f8;
     --surface: #ffffff;
     --panel-2: #eef0f4;
@@ -234,6 +241,16 @@ h3 {
     --series-2: #eb6834;
     --series-3: #1baf7a;
     --series-4: #eda100;
+    --scrim: rgba(16, 24, 40, 0.62);
+    --card-shadow: none;
+    --pop-shadow: none;
+    color-scheme: light;
+  }
+  .app-bg {
+    --accent-text: var(--accent-text-print, var(--accent)) !important;
+  }
+  :root[data-theme="dark"] .control {
+    background-color: var(--surface);
   }
   html {
     color-scheme: light;

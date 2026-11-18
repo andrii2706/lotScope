@@ -28,6 +28,8 @@ export interface AuthField {
   type?: string;
   autoComplete?: string;
   hint?: string;
+  defaultValue?: string;
+  readOnly?: boolean;
 }
 
 export interface SelectOption<T extends string = string> {

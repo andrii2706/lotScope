@@ -164,6 +164,8 @@ create index if not exists teams_company on teams(company_id);
 alter table users add column if not exists team_id text references teams(id) on delete set null;
 alter table invites add column if not exists team_id text references teams(id) on delete cascade;
 create index if not exists users_team on users(team_id);
+alter table invites add column if not exists email text;
+create index if not exists invites_email on invites(company_id, email) where used_at is null;
 
 create table if not exists report_files (
   report_id text not null references reports(id) on delete cascade,

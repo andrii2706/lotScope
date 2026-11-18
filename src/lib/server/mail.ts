@@ -67,3 +67,30 @@ export function resetEmail(name: string, link: string, minutes: number): Omit<Ma
 </table></td></tr></table></body></html>`;
   return { subject: "Скидання пароля LotScope", html, text };
 }
+
+export function inviteEmail(opts: { companyName: string; roleLabel: string; inviter: string; link: string; days: number }): Omit<Mail, "to"> {
+  const { companyName, roleLabel, inviter, link, days } = opts;
+  const who = inviter ? `${inviter} запрошує вас` : "Вас запрошено";
+  const text = [
+    "Вітаємо!",
+    "",
+    `${who} до LotScope у компанію «${companyName}» з роллю «${roleLabel}».`,
+    `Щоб створити акаунт і задати пароль, відкрийте посилання (діє ${days} днів, один раз):`,
+    link,
+    "",
+    "Увійти можна також через Google-акаунт з цією поштою.",
+    "Якщо ви не чекали цього запрошення, просто проігноруйте лист.",
+    "",
+    footer(),
+  ].join("\n");
+  const html = `<!doctype html><html lang="uk"><body style="margin:0;background:#f3f4f7;font-family:Arial,Helvetica,sans-serif;color:#14171c">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="padding:32px 12px"><tr><td align="center">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:520px;background:#ffffff;border-radius:16px;padding:32px">
+<tr><td style="font-size:20px;font-weight:700;padding-bottom:16px">LotScope</td></tr>
+<tr><td style="font-size:15px;line-height:1.6">Вітаємо!<br><br>${escape(who)} до LotScope у компанію «${escape(companyName)}» з роллю «${escape(roleLabel)}». Натисніть кнопку, щоб створити акаунт і задати пароль. Посилання діє ${days} днів і спрацьовує один раз.</td></tr>
+<tr><td style="padding:24px 0"><a href="${escape(link)}" style="display:inline-block;background:#c8f542;color:#0a0c0f;text-decoration:none;font-weight:700;padding:14px 22px;border-radius:12px">Прийняти запрошення</a></td></tr>
+<tr><td style="font-size:13px;line-height:1.6;color:#566070">Увійти можна також через Google-акаунт з цією поштою.<br><br>Якщо кнопка не працює, скопіюйте посилання в браузер:<br><span style="word-break:break-all">${escape(link)}</span><br><br>Якщо ви не чекали цього запрошення, просто проігноруйте лист.</td></tr>
+<tr><td style="font-size:12px;line-height:1.6;color:#8a93a3;border-top:1px solid #e6e8ee;padding-top:16px">${escape(footer())}</td></tr>
+</table></td></tr></table></body></html>`;
+  return { subject: `Запрошення до LotScope: «${companyName}»`, html, text };
+}

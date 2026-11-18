@@ -1,16 +1,46 @@
-import { newToken, sha256 } from "./auth.ts";
+import { newToken, normalizeEmail, sha256 } from "./auth.ts";
+import { appUrl } from "./http.ts";
+import { inviteEmail, sendMail } from "./mail.ts";
+import { ROLE_LABEL } from "../shared/roles.ts";
 import { query, tx } from "./db.ts";
-import type { Target } from "@/types/auth";
+import type { Role, Target } from "@/types/auth";
+import type { InviteResult } from "@/types/team";
 
 export const INVITE_DAYS = 7;
 
-export async function createInvite(companyId: string, role: string, createdBy: string, teamId: string | null = null): Promise<{ token: string }> {
+export async function createInvite(companyId: string, role: string, createdBy: string, teamId: string | null = null, email: string | null = null): Promise<{ token: string }> {
   const token = newToken();
-  await query(
-    "insert into invites (token_hash, company_id, role, created_by, expires_at, team_id) values ($1, $2, $3, $4, now() + $5::interval, $6)",
-    [sha256(token), companyId, role, createdBy, `${INVITE_DAYS} days`, teamId],
-  );
+  await tx(async (c) => {
+    if (email) await c.query("update invites set used_at = now() where company_id = $1 and email = $2 and used_at is null", [companyId, email]);
+    await c.query(
+      "insert into invites (token_hash, company_id, role, created_by, expires_at, team_id, email) values ($1, $2, $3, $4, now() + $5::interval, $6, $7)",
+      [sha256(token), companyId, role, createdBy, `${INVITE_DAYS} days`, teamId, email],
+    );
+  });
   return { token };
+}
+
+export type InviteOutcome = InviteResult | { error: string; status: number };
+
+export async function inviteByEmail(opts: {
+  request: Request;
+  companyId: string;
+  role: string;
+  createdBy: string;
+  inviterName: string;
+  teamId?: string | null;
+  email: unknown;
+}): Promise<InviteOutcome> {
+  const email = normalizeEmail(opts.email);
+  if (!email) return { error: "Вкажіть коректну пошту людини, якій надсилаєте запрошення.", status: 400 };
+  const taken = await query("select 1 from users where email = $1", [email]);
+  if (taken.length) return { error: "Людина з такою поштою вже має доступ до LotScope.", status: 409 };
+  const company = (await query<{ name: string }>("select name from companies where id = $1", [opts.companyId]))[0]?.name ?? "LotScope";
+  const made = await createInvite(opts.companyId, opts.role, opts.createdBy, opts.teamId ?? null, email);
+  const url = `${appUrl(opts.request)}/invite/${made.token}`;
+  const label = ROLE_LABEL[opts.role as Role] ?? opts.role;
+  const emailed = await sendMail({ to: email, ...inviteEmail({ companyName: company, roleLabel: label, inviter: opts.inviterName, link: url, days: INVITE_DAYS }) });
+  return { url, days: INVITE_DAYS, email, emailed };
 }
 
 export async function cancelInvites(companyId: string, teamId: string | null = null) {
