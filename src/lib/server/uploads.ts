@@ -4,7 +4,7 @@ import type { AnalysisUpload, AnalysisUploadKind, HistoryMediaType } from "@/typ
 export const MAX_UPLOAD_CHARS = 4_200_000;
 export const MAX_UPLOAD_REQUEST = MAX_UPLOAD_CHARS + 2000;
 export const UPLOAD_TTL_HOURS = 2;
-export const MAX_PENDING_UPLOADS = 60;
+export const MAX_PENDING_UPLOADS = 100;
 
 const KINDS: AnalysisUploadKind[] = ["photo", "history"];
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;

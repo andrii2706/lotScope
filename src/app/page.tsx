@@ -15,18 +15,17 @@ import { VinHistoryPanel } from "@/components/analysis/VinHistoryPanel";
 import { useVinHistory } from "@/lib/client/useVinHistory";
 import { Button, Field, Notice, NumberInput, PageHeader, Segmented, Select, StepCard } from "@/components/ui";
 import { EMPTY_LOT, MAX_PHOTOS } from "@/lib/shared/defaults";
-import { preparePhoto } from "@/lib/client/images";
-import { uploadForAnalysis } from "@/lib/client/uploads";
+import { fitPhotosForAnalysis, preparePhoto } from "@/lib/client/images";
 import { useLessons } from "@/lib/client/lessons";
 import { refreshMe, useMe } from "@/lib/client/me";
 import { can } from "@/lib/shared/roles";
 import { attachHistoryDocs, getSettings, localHistoryDocs, saveReport } from "@/lib/client/store";
 import { userMessage, responseMessage } from "@/lib/shared/errors";
 import type { Comparables, LotLookupResponse } from "@/types/auction";
-import type { AnalysisUpload, AnalyzeRequest, AnalyzeResponse, HistoryFile, LotInput, Report, AnalyzeStatus } from "@/types/report";
+import type { AnalyzeRequest, AnalyzeResponse, HistoryFile, LotInput, Report, AnalyzeStatus } from "@/types/report";
 import type { PreparedPhoto } from "@/types/system";
 import { FEATURES } from "@/config/features";
-import { STORED_PHOTOS, DAMAGE_OPTIONS, TITLE_OPTIONS, LOADING_STAGES, OUTCOMES } from "@/config/analysis";
+import { STORED_PHOTOS, DAMAGE_OPTIONS, TITLE_OPTIONS, LOADING_STAGES, OUTCOMES, MAX_REQUEST_CHARS } from "@/config/analysis";
 
 export default function NewAnalysisPage() {
   const router = useRouter();
@@ -35,7 +34,6 @@ export default function NewAnalysisPage() {
   const [status, setStatus] = useState<AnalyzeStatus | null>(null);
   const [loading, setLoading] = useState(false);
   const [stage, setStage] = useState(0);
-  const [uploading, setUploading] = useState<{ done: number; total: number } | null>(null);
   const [error, setError] = useState("");
   const [cardOpen, setCardOpen] = useState(false);
   const [history, setHistory] = useState<HistoryFile[]>([]);
@@ -72,13 +70,22 @@ export default function NewAnalysisPage() {
       setCardOpen(true);
     }
     setComparables(result.comparables ?? null);
-    const prepared: PreparedPhoto[] = [];
-    for (const [i, url] of (result.photos ?? []).entries()) {
-      try {
-        const blob = await (await fetch(url)).blob();
-        prepared.push(await preparePhoto(new File([blob], `lot-${i + 1}.jpg`, { type: blob.type })));
-      } catch {}
-    }
+    const urls = (result.photos ?? []).slice(0, MAX_PHOTOS);
+    const loaded: (PreparedPhoto | null)[] = new Array(urls.length).fill(null);
+    let next = 0;
+    const worker = async () => {
+      while (next < urls.length) {
+        const i = next++;
+        try {
+          const res = await fetch(urls[i]);
+          if (!res.ok) continue;
+          const blob = await res.blob();
+          loaded[i] = await preparePhoto(new File([blob], `lot-${i + 1}.jpg`, { type: blob.type }));
+        } catch {}
+      }
+    };
+    await Promise.all(Array.from({ length: Math.min(4, urls.length) }, worker));
+    const prepared = loaded.filter((p): p is PreparedPhoto => p !== null);
     if (prepared.length > 0) setPhotos((prev) => [...prev, ...prepared].slice(0, MAX_PHOTOS));
   }
 
@@ -119,28 +126,29 @@ export default function NewAnalysisPage() {
     setStage(0);
     setError("");
     const settings = getSettings();
+    const payload: AnalyzeRequest = {
+      lot,
+      images: photos.map((p) => ({ mediaType: "image/jpeg", data: p.data })),
+      history,
+      vinHistory,
+      pricing: {
+        laborRateUsd: settings.laborRateUsd,
+        paintPerPanelUsd: settings.paintPerPanelUsd,
+        partsPreference: settings.partsPreference,
+      },
+    };
     try {
-      const uploads: AnalysisUpload[] = [
-        ...photos.map((p): AnalysisUpload => ({ kind: "photo", name: p.name, mediaType: "image/jpeg", data: p.data })),
-        ...history.map((h): AnalysisUpload => ({ kind: "history", name: h.name, mediaType: h.mediaType, data: h.data })),
-      ];
-      const ids = await uploadForAnalysis(uploads, (done, total) => setUploading({ done, total }));
-      setUploading(null);
-      const payload: AnalyzeRequest = {
-        lot,
-        photoIds: ids.slice(0, photos.length),
-        historyIds: ids.slice(photos.length),
-        vinHistory,
-        pricing: {
-          laborRateUsd: settings.laborRateUsd,
-          paintPerPanelUsd: settings.paintPerPanelUsd,
-          partsPreference: settings.partsPreference,
-        },
-      };
+      const rest = JSON.stringify({ ...payload, images: [] }).length + photos.length * 64;
+      const fitted = await fitPhotosForAnalysis(photos.map((p) => p.data), MAX_REQUEST_CHARS - rest);
+      payload.images = fitted.map((data) => ({ mediaType: "image/jpeg", data }));
+      const body = JSON.stringify(payload);
+      if (body.length > MAX_REQUEST_CHARS) {
+        throw new Error("Фото та файли історії разом завеликі для одного запиту. Приберіть кілька фото або великий PDF і спробуйте ще раз.");
+      }
       const res = await fetch("/api/analyze", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify(payload),
+        body,
       });
       const data = (await res.json().catch(() => null)) as
         | (AnalyzeResponse & { error?: string })
@@ -181,7 +189,6 @@ export default function NewAnalysisPage() {
       setError(
         userMessage(e, "Аналіз не вдався. Спробуйте ще раз."),
       );
-      setUploading(null);
       setLoading(false);
     }
   }
@@ -388,10 +395,10 @@ export default function NewAnalysisPage() {
                   <Combobox minChars={0} options={TITLE_OPTIONS} placeholder="наприклад, Salvage" value={lot.titleType} onChange={(v) => set("titleType", v)} />
                 </Field>
 
-                <Field label="Primary Damage" className="col-span-2 sm:col-span-3">
+                <Field label="Основне пошкодження (Primary Damage)" className="col-span-2 sm:col-span-3">
                   <Combobox minChars={0} options={DAMAGE_OPTIONS} placeholder="наприклад, Left Side" value={lot.primaryDamage} onChange={(v) => set("primaryDamage", v)} />
                 </Field>
-                <Field label="Secondary Damage" className="col-span-2 sm:col-span-3">
+                <Field label="Додаткове пошкодження (Secondary Damage)" className="col-span-2 sm:col-span-3">
                   <Combobox minChars={0} options={DAMAGE_OPTIONS} placeholder="якщо вказано" value={lot.secondaryDamage} onChange={(v) => set("secondaryDamage", v)} />
                 </Field>
 
@@ -412,8 +419,8 @@ export default function NewAnalysisPage() {
                   value={lot.runStatus}
                   onChange={(v) => set("runStatus", v)}
                   options={[
-                    { value: "run_drive", label: "Run & Drive" },
-                    { value: "starts", label: "Starts" },
+                    { value: "run_drive", label: "Заводиться і їде" },
+                    { value: "starts", label: "Заводиться" },
                     { value: "no_start", label: "Не заводиться" },
                     { value: "unknown", label: "Невідомо" },
                   ]}
@@ -560,7 +567,7 @@ export default function NewAnalysisPage() {
               </span>
             </div>
             <p className="text-lg font-semibold tracking-tight">Аналізую лот</p>
-            <p className="mt-1 min-h-5 text-sm font-semibold text-accent-text">{uploading ? `Завантажую файли: ${uploading.done} з ${uploading.total}…` : LOADING_STAGES[stage]}</p>
+            <p className="mt-1 min-h-5 text-sm font-semibold text-accent-text">{LOADING_STAGES[stage]}</p>
             <p className="mt-3 text-xs text-muted">Зазвичай це триває до хвилини. Не закривайте сторінку.</p>
           </div>
         </div>

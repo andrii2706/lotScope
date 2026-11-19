@@ -1,6 +1,6 @@
 import { CircleDollarSign, FileText, Gavel, ScanSearch, Wrench } from "lucide-react";
 
-export const STORED_PHOTOS = 8;
+export const STORED_PHOTOS = 20;
 
 export const DAMAGE_OPTIONS = [
   "Front End",
@@ -38,3 +38,4 @@ export const OUTCOMES = [
   { icon: FileText, text: "PDF-звіт з вашим логотипом" },
 ];
 
+export const MAX_REQUEST_CHARS = 4_300_000;

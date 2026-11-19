@@ -32,7 +32,7 @@ workspace, the company's own rates, and a report under the company's brand.
 A working MVP. Verified:
 
 - build, lint and type check pass;
-- 58 tests pass (`npm test`): calculations, VIN checks, lot query parsing, provider mapping, lot search, VIN history, roles, password hashing, reset and invite mail, DB SSL config and history file validation;
+- 70 tests pass (`npm test`): calculations, VIN checks, lot query parsing, provider mapping, lot search, VIN history, roles, password hashing, reset and invite mail, DB SSL config and history file validation;
 - the full flow in a browser on desktop and phone: form → analysis → report → editing
   amounts → print to PDF → history → settings;
 - real AI analysis with an API key works: the first real lot (2018 BMW 330i GT xDrive,
@@ -48,7 +48,7 @@ Not verified: accuracy of repair estimates against a sample of lots with known r
 - `lucide-react` — icons
 - `@fontsource-variable/geist` (interface font), `@fontsource-variable/geist-mono` (lot numbers, VIN)
 - Tests: built-in `node:test`, no extra libraries
-- Postgres through `pg` (plain SQL, schema in `db/schema.sql`, applied by `npm run db:migrate`): companies, users, sessions, invites, lessons, reports, report_photos, report_files, analysis_uploads, audit_log, market_cache, password_resets (`payments`, `usage`, `lot_unlocks` and `companies.plan/credits` are left from the removed billing and are no longer read). Reports and company settings live in the database
+- Postgres through `pg` (plain SQL, schema in `db/schema.sql`, applied by `npm run db:migrate`): companies, users, sessions, invites, lessons, reports, report_photos, report_files, audit_log, market_cache, password_resets (`payments`, `usage`, `lot_unlocks` and `companies.plan/credits` are left from the removed billing and are no longer read). Reports and company settings live in the database
 - Requires Node.js 20.9+
 
 ## Commands
@@ -136,7 +136,7 @@ src/config/                  brand (copyright owner and start year), features (F
 src/types/                   report (LotInput, Analysis, Settings, Report…), auction, vin, pricing, auth (Role, Permission, CurrentUser, Me…), admin, team, system, ui
 src/lib/server/              auth, db, dbssl, dberror, schema, route, http (fail/readJson/text), scope, members, audit, superadmin, google, password, mail, provider, autoria, reports, prompt, normalize, demo
 src/lib/client/              api, me, store, rates (useRates/useCostSettings), lessons, theme, images, useVinHistory, navigation (safeNext)
-src/lib/shared/              calc, auctionFees, auctions, auction, search, lots, vin, vinDecode, vinhistory, partsPricing, rates, autoriaMatch, roles, labels, auditLabels, errors, defaults, cars, color, lessons, overrides, expertStats, time, copyright
+src/lib/shared/              calc, auctionFees, auctions, auction, search, lots, vin, vinDecode, vinhistory, partsPricing, rates, autoriaMatch, roles, labels, auditLabels, errors, defaults, cars, color, lessons, overrides, expertStats, time, copyright, lotText
 src/proxy.ts                 redirects pages without a session cookie to /login
 tests/*.test.mjs             node:test suites importing src/lib/shared and src/lib/server files directly
 db/schema.sql                database schema; scripts/migrate.mjs and lib/server/schema.ts apply it
@@ -145,21 +145,13 @@ docs/deploy.md               deployment guide (Ukrainian): step-by-step setup of
 
 ## How an analysis runs
 
-1. `page.tsx` collects a `LotInput` and the photos. `lib/client/images.ts` compresses each photo in the
-   browser into three copies: `data` (JPEG up to 1568 px, base64, sent for analysis),
-   `thumb` (640 px), `cover` (1200 px).
-2. Each photo and each Carfax/AutoCheck file goes to `POST /api/analyze/upload` as its own request
-   (`uploadForAnalysis` in `lib/client/uploads.ts`, 3 in parallel, the loading screen shows
-   "Завантажую файли: N з M…"), so no request comes near the Vercel 4.5 MB body limit. The route
-   (`parseUpload` in `lib/server/uploads.ts`: kind `photo` or `history`, magic bytes, up to 4.2M chars)
-   stores the file in `analysis_uploads` and returns its `id`. Rows older than 2 hours are deleted on
-   every upload, and a user may have at most 60 pending rows.
-   Then POST `/api/analyze` with `{ lot, photoIds, historyIds, pricing, vinHistory }`. `pricing` comes
-   from the company settings: labor rate, paint price per panel, parts preference. Inline `images` and
-   `history` are still accepted when no ids are sent.
-3. `route.ts` checks the session, loads the uploads of this user in the order of the ids (410 when one
-   is missing or of the wrong kind), audits `analyze`, sanitizes and validates the data (`sanitizeLot`),
-   limits photo count and size, and deletes the used uploads when the analysis ends, successful or not.
+1. `page.tsx` collects a `LotInput` and up to `MAX_PHOTOS` (20) photos. `lib/client/images.ts` compresses each photo in the
+   browser into three copies: `data` (JPEG up to 1344 px, base64, sent for analysis),
+   `thumb` (640 px), `cover` (1200 px). Before sending, `fitPhotosForAnalysis` re-encodes all `data` copies in steps (1152 → 768 px) until the whole request fits `MAX_REQUEST_CHARS` (4.3 MB, under the Vercel 4.5 MB body limit). All photos (first as cover, the rest as thumbs, `STORED_PHOTOS` = `MAX_STORED_PHOTOS` = 20) are stored with the report.
+2. POST `/api/analyze` with `{ lot, images, pricing }`. `pricing` comes from the company
+   settings: labor rate, paint price per panel, parts preference.
+3. `route.ts` checks the session, audits `analyze`, sanitizes and validates the data (`sanitizeLot`), and
+   limits photo count and size.
 4. With no key, it returns `DEMO_ANALYSIS` with `demo: true`.
 5. With a key, it calls `client.messages.create` with `system: SYSTEM_PROMPT`, the lot text,
    photos labelled `Photo N:`, and `output_config.format` of type `json_schema`
@@ -234,6 +226,8 @@ Known simplifications:
 - `next.config.ts` adds security headers to every response (HSTS, `X-Frame-Options: DENY`, CSP `frame-ancestors 'none'; base-uri 'self'`, `nosniff`, Referrer-Policy, Permissions-Policy, `X-Robots-Tag: noindex`) and `poweredByHeader: false`; `app/robots.ts` disallows everything and `proxy.ts` skips `robots.txt`. Do not add a strict CSP without testing the theme boot script and the PDF viewer.
 - Copyright «© ТОВ «ПАВ ІТ», 2026» (`Copyright` component, text from `config/brand.ts`, year range via `copyrightText`) is shown under the auth form (`AuthLayout`) and under the account block in `Sidebar` and `MobileNav`. It is deliberately not in the client PDF report, which carries the client company's brand.
 - `.env.production.example` is the template of production variables to paste into Vercel.
+- Lot photos from the provider: `/api/lot` no longer embeds them; it returns up to 20 links `/api/lot/photo?u=<url>&s=<sig>` (`lib/server/lotPhotos.ts`), where `s` is an HMAC of the URL keyed with the caller's session token, so the proxy only serves URLs the server handed to that session (`safePhotoUrl` also allows only public https hosts). The client loads them 4 at a time and compresses them like uploaded photos. This keeps each response small (Vercel also limits responses to 4.5 MB).
+- Report header: "Друкувати" (`window.print()`, the print CSS) and "Завантажити PDF", which builds a real file in the browser (`lib/client/pdf.ts`): it clones `PrintReport`'s `article.sheet` into an off-screen `.pdf-capture` container (light palette in `globals.css`, letter-spacing off, `first-letter:uppercase` applied to the text because the renderer ignores it), renders it with `html2canvas-pro` and slices it into A4 pages with `jspdf`. `pageBreaks` cuts only between blocks (`.avoid-break`, rows, paragraphs, images…) and never right after a heading. The PDF is an image (text is not selectable). The file name is ASCII (`2020 BMW X3 lot 123.pdf`) because Cyrillic download names were dropped by Chromium in tests. Both buttons send the `pdf` audit event for saved reports.
 
 ## Market and parts prices
 
@@ -282,6 +276,8 @@ A light business SaaS interface by default (mocks: Design artifact "LotScope —
 - Status is never conveyed by color alone: there is always an icon or a label next to it.
 - `.no-print` hides an element on paper, `.print-only` shows it only on paper.
 - No native browser dialogs: use `confirmDialog({ title, message, confirmLabel, tone })` from `components/ui/ConfirmDialog.tsx` (host mounted in `AppShell`) instead of `window.confirm`/`alert`, `Lightbox` for photos, and forms use `noValidate` with in-app error messages instead of browser validation bubbles.
+
+Lot details are shown to people in Ukrainian through `lib/shared/lotText.ts`: auction damage codes (`damageText`), title types with the state or province (`titleInfo`, `titleText`), run status (`RUN_TEXT`), mileage in km with miles and correct plural (`mileageText`, 10 miles or less is shown as "пробіг не вказано"), and `lotDescription` (short sentences for the "Про авто" block on screen and under the title in the PDF). The stored lot keeps the original auction values; only the display is translated. Unknown codes are shown as they are. The report header chips stay short (`mileageShort`, title label, primary damage); the full text lives only in "Про авто".
 
 The report exists in two views built from the same data: the on-screen one in
 `report/[id]/page.tsx` and the printed one in `components/report/PrintReport.tsx`. When you add a block to the

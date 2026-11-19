@@ -17,6 +17,15 @@ function load(file: File): Promise<HTMLImageElement> {
   });
 }
 
+function loadUrl(src: string): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = () => reject(new Error("Не вдалося обробити фото"));
+    img.src = src;
+  });
+}
+
 function render(img: HTMLImageElement, maxSide: number, quality: number): string {
   const scale = Math.min(1, maxSide / Math.max(img.naturalWidth, img.naturalHeight));
   const canvas = document.createElement("canvas");
@@ -42,6 +51,28 @@ export async function preparePhoto(file: File): Promise<PreparedPhoto> {
     thumb,
     cover,
   };
+}
+
+const SHRINK_STEPS: [number, number][] = [
+  [1152, 0.74],
+  [1024, 0.7],
+  [896, 0.66],
+  [768, 0.62],
+];
+
+export async function fitPhotosForAnalysis(photos: string[], budgetChars: number): Promise<string[]> {
+  const total = (list: string[]) => list.reduce((sum, p) => sum + p.length, 0);
+  if (total(photos) <= budgetChars) return photos;
+  const images = await Promise.all(photos.map((p) => loadUrl(`data:image/jpeg;base64,${p}`)));
+  let last = photos;
+  for (const [side, quality] of SHRINK_STEPS) {
+    last = images.map((img) => {
+      const url = render(img, side, quality);
+      return url.slice(url.indexOf(",") + 1);
+    });
+    if (total(last) <= budgetChars) return last;
+  }
+  return last;
 }
 
 export async function fileToLogo(file: File): Promise<string> {

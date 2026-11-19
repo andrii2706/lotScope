@@ -70,4 +70,4 @@ export const EMPTY_LOT: LotInput = {
   marketPriceUsd: 0,
 };
 
-export const MAX_PHOTOS = 12;
+export const MAX_PHOTOS = 20;

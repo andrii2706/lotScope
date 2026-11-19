@@ -1,7 +1,7 @@
 import type { ReportRow } from "@/types/system";
 import type { HistoryMediaType, Report, StoredHistoryDoc } from "@/types/report";
 
-export const MAX_STORED_PHOTOS = 8;
+export const MAX_STORED_PHOTOS = 20;
 export const MAX_PHOTO_CHARS = 900_000;
 export const MAX_REPORT_REQUEST = 4_000_000;
 

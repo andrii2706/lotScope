@@ -38,12 +38,6 @@ export const FUEL: Record<LotInput["fuel"], string> = {
   electric: "електро",
 };
 
-export const RUN: Record<LotInput["runStatus"], string> = {
-  run_drive: "Run & Drive",
-  starts: "Starts",
-  no_start: "не заводиться",
-  unknown: "",
-};
 
 export const TONE_TEXT = { good: "text-good", warn: "text-warn", bad: "text-bad" } as const;
 export const TONE_BG = { good: "bg-good-bg", warn: "bg-warn-bg", bad: "bg-bad-bg" } as const;
@@ -57,12 +51,6 @@ export function lotTitle(lot: LotInput): string {
   return `${lot.year} ${lot.make} ${lot.model}`.trim();
 }
 
-export function mileageText(lot: LotInput): string {
-  if (!lot.mileage) return "";
-  const km = lot.mileageUnit === "mi" ? Math.round(lot.mileage * 1.609) : lot.mileage;
-  const main = `${Math.round(km).toLocaleString("uk-UA")} км`;
-  return lot.mileageUnit === "mi" ? `${main} (${lot.mileage.toLocaleString("uk-UA")} миль)` : main;
-}
 
 export function formatDate(iso: string): string {
   return new Date(iso).toLocaleDateString("uk-UA", { day: "numeric", month: "long", year: "numeric" });

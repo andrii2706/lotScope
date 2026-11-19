@@ -2,7 +2,7 @@
 
 import { AUCTIONS } from "@/lib/shared/auctions";
 import { useCostSettings } from "@/lib/client/rates";
-import { ArrowLeft, Camera, CarFront, ChevronDown, CircleCheck, Crosshair, FileSearch, ListChecks, Maximize2, Pencil, Printer, ShieldCheck, ThumbsUp, TriangleAlert, Wind } from "lucide-react";
+import { ArrowLeft, Camera, CarFront, ChevronDown, CircleCheck, Crosshair, FileSearch, ListChecks, Download, LoaderCircle, Maximize2, Pencil, Printer, ShieldCheck, ThumbsUp, TriangleAlert, Wind } from "lucide-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { Lightbox } from "@/components/ui/Lightbox";
@@ -16,8 +16,10 @@ import { ScoreRing } from "@/components/report/ScoreRing";
 import { Button, Notice } from "@/components/ui";
 import { calculate, usd } from "@/lib/shared/calc";
 import { useCan, useMe } from "@/lib/client/me";
-import { ACTION, AIRBAG, CONFIDENCE, FUEL, LEVEL, LEVEL_TONE, LIKELIHOOD, RUN, TONE_BG, TONE_TEXT, VERDICT, lotTitle, mileageText } from "@/lib/shared/labels";
+import { ACTION, AIRBAG, CONFIDENCE, LEVEL, LEVEL_TONE, LIKELIHOOD, TONE_BG, TONE_TEXT, VERDICT, lotTitle } from "@/lib/shared/labels";
+import { RUN_TEXT, damageText, damagesText, engineText, lotDescription, mileageShort, mileageText, titleInfo } from "@/lib/shared/lotText";
 import { updateReport, useHydrated, useReports } from "@/lib/client/store";
+import { downloadReportPdf, pdfFileName } from "@/lib/client/pdf";
 import type { CostOverrides } from "@/types/report";
 import type { Tone } from "@/types/ui";
 import { VERDICT_ICON, ACTION_STYLE, LEVEL_DOTS } from "@/components/report/reportStyles";
@@ -41,6 +43,8 @@ export default function ReportPage() {
   const [tableOpen, setTableOpen] = useState(false);
   const [photo, setPhoto] = useState(0);
   const [zoom, setZoom] = useState(false);
+  const [pdfBusy, setPdfBusy] = useState(false);
+  const [pdfError, setPdfError] = useState("");
 
   const report = reports.find((r) => r.id === id);
 
@@ -91,6 +95,29 @@ export default function ReportPage() {
   const scrollToCost = () =>
     window.setTimeout(() => document.getElementById("cost-summary")?.scrollIntoView({ behavior: "smooth", block: "start" }), 60);
 
+  const reportEvent = () => {
+    if (report.saved) void fetch(`/api/reports/${report.id}/event`, { method: "POST" }).catch(() => null);
+  };
+  const printReport = () => {
+    reportEvent();
+    window.print();
+  };
+  const savePdf = async () => {
+    const article = document.querySelector<HTMLElement>("article.sheet");
+    if (!article || pdfBusy) return;
+    setPdfBusy(true);
+    setPdfError("");
+    try {
+      await downloadReportPdf(article, pdfFileName([lotTitle(report.lot), report.lot.lotNumber && `lot ${report.lot.lotNumber}`]));
+      reportEvent();
+    } catch (error) {
+      console.error("[LotScope] pdf", error);
+      setPdfError("Не вдалося створити файл. Скористайтесь кнопкою «Друкувати» і виберіть «Зберегти як PDF».");
+    } finally {
+      setPdfBusy(false);
+    }
+  };
+
   const startEditing = () => {
     setSavedNote(false);
     setDraft({ ...overrides });
@@ -122,10 +149,6 @@ export default function ReportPage() {
     });
   };
 
-  const engine =
-    lot.fuel === "electric"
-      ? `електро, ${lot.batteryKwh} кВт·год`
-      : `${FUEL[lot.fuel]}, ${(lot.engineCc / 1000).toFixed(1)} л`;
   const auction = [
     lot.auction === "Other" ? "" : AUCTIONS[lot.auction]?.label ?? lot.auction,
     lot.lotNumber && `лот ${lot.lotNumber}`,
@@ -133,19 +156,24 @@ export default function ReportPage() {
     .filter(Boolean)
     .join(" · ");
 
-  const damages = [...new Set([lot.primaryDamage, lot.secondaryDamage].filter(Boolean))];
+  const title = titleInfo(lot.titleType);
+  const titleValue = title ? [title.label, title.region].filter(Boolean).join(", ") : "";
+  const damage = damagesText(lot);
+  const description = lotDescription(lot);
 
   const facts = [
     ["Пробіг", mileageText(lot)],
-    ["Двигун", engine],
+    ["Двигун", engineText(lot)],
     ["Аукціон", auction],
-    ["Пошкодження", damages.join(" / ")],
-    ["Документ", lot.titleType],
-    ["Стан", RUN[lot.runStatus]],
+    ["Пошкодження", damage],
+    ["Документ", title ? [titleValue, title.note].filter(Boolean).join(" — ") : ""],
+    ["Стан", RUN_TEXT[lot.runStatus]],
     ["VIN", lot.vin],
     ["VIN на фото", analysis.vinOnPhoto ?? ""],
     ["Пробіг на фото", analysis.odometerOnPhoto ?? ""],
   ].filter(([, value]) => value);
+  const DESCRIBED = ["Пробіг", "Двигун", "Пошкодження", "Документ", "Стан"];
+  const extraFacts = description.length > 0 ? facts.filter(([label]) => !DESCRIBED.includes(label)) : facts;
 
   const photoReadings = [
     analysis.vinOnPhoto ? `VIN ${analysis.vinOnPhoto}` : "",
@@ -165,7 +193,7 @@ export default function ReportPage() {
 
   const auctionMeta = lot.auction === "Other" ? null : AUCTIONS[lot.auction];
   const created = new Date(report.createdAt);
-  const chips = [mileageText(lot), lot.titleType, ...damages].filter(Boolean);
+  const chips = [mileageShort(lot), title?.label ?? "", damageText(lot.primaryDamage)].filter(Boolean);
   const turnkey = `${Math.round(cost.totalMinUsd).toLocaleString("uk-UA")} – ${usd(cost.totalMaxUsd)}`;
 
   return (
@@ -205,16 +233,18 @@ export default function ReportPage() {
               </Button>
             )}
             {canPdf && (
-              <Button
-                onClick={() => {
-                  if (report.saved) void fetch(`/api/reports/${report.id}/event`, { method: "POST" });
-                  window.print();
-                }}
-              >
-                <Printer className="size-4" /> Завантажити PDF
-              </Button>
+              <>
+                <Button variant="secondary" onClick={printReport}>
+                  <Printer className="size-4" /> Друкувати
+                </Button>
+                <Button onClick={() => void savePdf()} disabled={pdfBusy}>
+                  {pdfBusy ? <LoaderCircle className="size-4 animate-spin" /> : <Download className="size-4" />}
+                  {pdfBusy ? "Готую PDF…" : "Завантажити PDF"}
+                </Button>
+              </>
             )}
           </div>
+          {pdfError && <p role="alert" className="w-full text-sm text-bad">{pdfError}</p>}
         </header>
 
         {report.saved === false && (
@@ -370,6 +400,30 @@ export default function ReportPage() {
             note={analysis.airbagNote}
           />
         </section>
+
+        {(description.length > 0 || extraFacts.length > 0) && (
+          <Block title="Про авто">
+            <div className="card p-5 sm:p-6">
+              {description.length > 0 && (
+                <div className="max-w-4xl space-y-1.5 text-[15px] leading-relaxed text-ink/90">
+                  {description.map((line) => (
+                    <p key={line}>{line}</p>
+                  ))}
+                </div>
+              )}
+              {extraFacts.length > 0 && (
+                <dl className={`grid gap-x-6 gap-y-3.5 text-sm sm:grid-cols-2 lg:grid-cols-3 ${description.length > 0 ? "mt-5 border-t border-line pt-5" : ""}`}>
+                  {extraFacts.map(([label, value]) => (
+                    <div key={label} className="min-w-0">
+                      <dt className="text-xs font-medium text-muted">{label}</dt>
+                      <dd className={`mt-0.5 break-words font-semibold text-ink ${label.startsWith("VIN") ? "font-mono text-[13px]" : ""}`}>{value}</dd>
+                    </div>
+                  ))}
+                </dl>
+              )}
+            </div>
+          </Block>
+        )}
 
         <Block title="Коротко">
           <div className="card p-5 sm:p-6">
@@ -634,7 +688,8 @@ export default function ReportPage() {
         report={report}
         settings={settings}
         cost={cost}
-        facts={facts}
+        facts={extraFacts}
+        description={description}
       />
     </>
   );

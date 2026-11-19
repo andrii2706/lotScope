@@ -23,11 +23,13 @@ export function PrintReport({
   settings,
   cost,
   facts,
+  description,
 }: {
   report: Report;
   settings: Settings;
   cost: CostResult;
   facts: string[][];
+  description: string[];
 }) {
   const { lot, analysis } = report;
   const verdict = VERDICT[analysis.verdict];
@@ -81,9 +83,10 @@ export function PrintReport({
         )}
         <div className={photos.length === 0 ? "col-span-2" : ""}>
           <h1 className="font-display text-2xl font-semibold leading-[1.15] tracking-tight">{lotTitle(lot)}</h1>
+          {description.length > 0 && <p className="mt-2 text-sm leading-relaxed text-ink/85">{description.join(" ")}</p>}
           <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
             {facts.map(([label, value]) => (
-              <div key={label} className={label.startsWith("VIN") || label === "Пошкодження" ? "col-span-2" : ""}>
+              <div key={label} className={label.startsWith("VIN") || label === "Пошкодження" || label === "Документ" ? "col-span-2" : ""}>
                 <dt className="text-xs font-semibold text-muted">{label}</dt>
                 <dd className="font-bold">{value}</dd>
               </div>

@@ -285,6 +285,43 @@ h3 {
   }
 }
 
+.pdf-capture {
+  --paper: #f4f5f8;
+  --surface: #ffffff;
+  --panel-2: #eef0f4;
+  --line: #dfe3ea;
+  --line-2: #cdd2dc;
+  --ink: #0e1324;
+  --on-ink: #ffffff;
+  --muted: #5a6379;
+  --faint: #8d95a8;
+  --good: #0f7a43;
+  --good-bg: #e3f6ea;
+  --warn: #9a5a00;
+  --warn-bg: #fdf1d8;
+  --bad: #c0271f;
+  --bad-bg: #fdeae8;
+  --series-1: #2a78d6;
+  --series-2: #eb6834;
+  --series-3: #1baf7a;
+  --series-4: #eda100;
+  --scrim: rgba(16, 24, 40, 0.62);
+  --card-shadow: none;
+  --pop-shadow: none;
+  --accent-text: var(--accent-text-print, var(--accent));
+  color-scheme: light;
+  color: var(--ink);
+}
+.pdf-capture .print-only {
+  display: block;
+}
+.pdf-capture .no-print {
+  display: none;
+}
+.pdf-capture * {
+  letter-spacing: 0 !important;
+}
+
 button:not(:disabled),
 [role="button"]:not([aria-disabled="true"]),
 [role="radio"],

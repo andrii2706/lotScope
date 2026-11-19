@@ -14,6 +14,7 @@ import type { SearchFilters, SearchResponse } from "@/types/auction";
 import { DEFAULT_SEARCH_FILTERS } from "@/config/search";
 import { auctionTime, analyzeHref } from "@/lib/shared/lots";
 import { RunBadge } from "@/components/search/RunBadge";
+import { damageText, mileageText, titleText } from "@/lib/shared/lotText";
 
 export default function SearchPage() {
   const [filters, setFilters] = useState<SearchFilters>(DEFAULT_SEARCH_FILTERS);
@@ -259,7 +260,7 @@ export default function SearchPage() {
                           </td>
                           <td className="px-3 py-3">
                             <div className="flex max-w-56 flex-wrap gap-1">
-                              {[...new Set([lot.primaryDamage, lot.secondaryDamage, lot.titleType].filter(Boolean))].map((t) => (
+                              {[...new Set([damageText(lot.primaryDamage), damageText(lot.secondaryDamage), titleText(lot.titleType)].filter(Boolean))].map((t) => (
                                 <span key={t} className="rounded-full bg-panel2 px-2 py-0.5 text-xs font-medium">
                                   {t}
                                 </span>
@@ -268,7 +269,7 @@ export default function SearchPage() {
                             </div>
                           </td>
                           <td className="px-3 py-3">
-                            <p className="font-medium tabular-nums">{lot.odometer ? `${lot.odometer.toLocaleString("uk-UA")} mi` : "—"}</p>
+                            <p className="font-medium tabular-nums">{mileageText({ mileage: lot.odometer, mileageUnit: "mi" }) || "—"}</p>
                             <p className="max-w-44 truncate text-xs text-muted">{lot.location || "—"}</p>
                           </td>
                           <td className="whitespace-nowrap px-3 py-3">

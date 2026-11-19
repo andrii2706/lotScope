@@ -77,11 +77,11 @@ export function AppShell({ children }: { children: ReactNode }) {
   const navFor = (onPick?: () => void) => <NavList items={nav} pathname={pathname} loading={!user} onPick={onPick} />;
 
   return (
-    <div style={style} className="app-bg min-h-screen lg:flex">
+    <div style={style} className="app-bg min-h-screen lg:flex print:block print:min-h-0">
       <Sidebar nav={navFor()} account={account} />
       <MobileNav open={menuOpen} onToggle={() => setMenuOpen((v) => !v)} nav={navFor(() => setMenuOpen(false))} account={account} />
 
-      <main className="min-w-0 flex-1 px-4 pb-16 pt-6 sm:px-6 lg:px-10 lg:pt-8">
+      <main className="min-w-0 flex-1 px-4 pb-16 pt-6 sm:px-6 lg:px-10 lg:pt-8 print:p-0">
         <div className="mx-auto max-w-[1180px]">
           {failed ? (
             <Notice tone="warn" title="Не вдалося завантажити дані">
