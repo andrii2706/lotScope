@@ -11,7 +11,9 @@ import { fail } from "@/lib/server/http";
 import { vinFlags } from "@/lib/shared/vin";
 import { historyToText, mileageIssues, previousAuctionFlags, sanitizeHistory } from "@/lib/shared/vinhistory";
 import { route } from "@/lib/server/route";
+import { pickUploads, uploadIds, type UploadRow } from "@/lib/server/uploads";
 import type { AnalyzeRequest, AnalyzeResponse, HistoryFile, LotInput } from "@/types/report";
+import type { CurrentUser } from "@/types/auth";
 
 export const maxDuration = 120;
 
@@ -86,6 +88,33 @@ async function handlePOST(request: Request) {
   const lot = sanitizeLot(body.lot);
   if (!lot) return fail(400, "Вкажіть марку, модель і рік авто.");
 
+  const photoIds = uploadIds(body.photoIds, MAX_PHOTOS);
+  const historyIds = uploadIds(body.historyIds, MAX_HISTORY_FILES);
+  if (!photoIds || !historyIds) return fail(400, "Не вдалося прочитати список завантажених файлів.");
+  const ids = [...photoIds, ...historyIds];
+  if (ids.length === 0) return analyze(user, body, lot);
+
+  try {
+    const rows = await query<UploadRow>(
+      "select id, kind, name, media_type, data from analysis_uploads where user_id = $1 and id = any($2::text[])",
+      [user.id, ids],
+    );
+    const photoRows = pickUploads(photoIds, "photo", rows);
+    const historyRows = pickUploads(historyIds, "history", rows);
+    if (!photoRows || !historyRows) {
+      return fail(410, "Завантажені файли вже недоступні. Запустіть аналіз ще раз.");
+    }
+    return await analyze(user, {
+      ...body,
+      images: photoRows.map((r) => ({ mediaType: r.media_type as "image/jpeg" | "image/png" | "image/webp", data: r.data })),
+      history: historyRows.map((r) => ({ name: r.name, mediaType: r.media_type, data: r.data })),
+    }, lot);
+  } finally {
+    await query("delete from analysis_uploads where user_id = $1 and id = any($2::text[])", [user.id, ids]).catch(() => {});
+  }
+}
+
+async function analyze(user: CurrentUser, body: Partial<AnalyzeRequest>, lot: LotInput) {
   const images = Array.isArray(body.images) ? body.images : [];
   if (images.length === 0) return fail(400, "Додайте хоча б одне фото лота.");
   if (images.length > MAX_PHOTOS) return fail(400, `Не більше ${MAX_PHOTOS} фото за один аналіз.`);

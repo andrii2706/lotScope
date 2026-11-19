@@ -177,6 +177,19 @@ create table if not exists report_files (
   primary key (report_id, idx)
 );
 
+create table if not exists analysis_uploads (
+  id text primary key,
+  company_id text not null references companies(id) on delete cascade,
+  user_id text not null references users(id) on delete cascade,
+  kind text not null,
+  name text not null,
+  media_type text not null,
+  data text not null,
+  created_at timestamptz not null default now()
+);
+create index if not exists analysis_uploads_user on analysis_uploads(user_id, created_at);
+create index if not exists analysis_uploads_created on analysis_uploads(created_at);
+
 do $$
 declare t text;
 begin

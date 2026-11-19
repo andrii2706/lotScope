@@ -16,16 +16,17 @@ import { useVinHistory } from "@/lib/client/useVinHistory";
 import { Button, Field, Notice, NumberInput, PageHeader, Segmented, Select, StepCard } from "@/components/ui";
 import { EMPTY_LOT, MAX_PHOTOS } from "@/lib/shared/defaults";
 import { preparePhoto } from "@/lib/client/images";
+import { uploadForAnalysis } from "@/lib/client/uploads";
 import { useLessons } from "@/lib/client/lessons";
 import { refreshMe, useMe } from "@/lib/client/me";
 import { can } from "@/lib/shared/roles";
 import { attachHistoryDocs, getSettings, localHistoryDocs, saveReport } from "@/lib/client/store";
 import { userMessage, responseMessage } from "@/lib/shared/errors";
 import type { Comparables, LotLookupResponse } from "@/types/auction";
-import type { AnalyzeRequest, AnalyzeResponse, HistoryFile, LotInput, Report, AnalyzeStatus } from "@/types/report";
+import type { AnalysisUpload, AnalyzeRequest, AnalyzeResponse, HistoryFile, LotInput, Report, AnalyzeStatus } from "@/types/report";
 import type { PreparedPhoto } from "@/types/system";
 import { FEATURES } from "@/config/features";
-import { STORED_PHOTOS, DAMAGE_OPTIONS, TITLE_OPTIONS, LOADING_STAGES, OUTCOMES, MAX_REQUEST_CHARS } from "@/config/analysis";
+import { STORED_PHOTOS, DAMAGE_OPTIONS, TITLE_OPTIONS, LOADING_STAGES, OUTCOMES } from "@/config/analysis";
 
 export default function NewAnalysisPage() {
   const router = useRouter();
@@ -34,6 +35,7 @@ export default function NewAnalysisPage() {
   const [status, setStatus] = useState<AnalyzeStatus | null>(null);
   const [loading, setLoading] = useState(false);
   const [stage, setStage] = useState(0);
+  const [uploading, setUploading] = useState<{ done: number; total: number } | null>(null);
   const [error, setError] = useState("");
   const [cardOpen, setCardOpen] = useState(false);
   const [history, setHistory] = useState<HistoryFile[]>([]);
@@ -117,26 +119,28 @@ export default function NewAnalysisPage() {
     setStage(0);
     setError("");
     const settings = getSettings();
-    const payload: AnalyzeRequest = {
-      lot,
-      images: photos.map((p) => ({ mediaType: "image/jpeg", data: p.data })),
-      history,
-      vinHistory,
-      pricing: {
-        laborRateUsd: settings.laborRateUsd,
-        paintPerPanelUsd: settings.paintPerPanelUsd,
-        partsPreference: settings.partsPreference,
-      },
-    };
     try {
-      const body = JSON.stringify(payload);
-      if (body.length > MAX_REQUEST_CHARS) {
-        throw new Error("Фото та файли історії разом завеликі для одного запиту. Приберіть кілька фото або великий PDF і спробуйте ще раз.");
-      }
+      const uploads: AnalysisUpload[] = [
+        ...photos.map((p): AnalysisUpload => ({ kind: "photo", name: p.name, mediaType: "image/jpeg", data: p.data })),
+        ...history.map((h): AnalysisUpload => ({ kind: "history", name: h.name, mediaType: h.mediaType, data: h.data })),
+      ];
+      const ids = await uploadForAnalysis(uploads, (done, total) => setUploading({ done, total }));
+      setUploading(null);
+      const payload: AnalyzeRequest = {
+        lot,
+        photoIds: ids.slice(0, photos.length),
+        historyIds: ids.slice(photos.length),
+        vinHistory,
+        pricing: {
+          laborRateUsd: settings.laborRateUsd,
+          paintPerPanelUsd: settings.paintPerPanelUsd,
+          partsPreference: settings.partsPreference,
+        },
+      };
       const res = await fetch("/api/analyze", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body,
+        body: JSON.stringify(payload),
       });
       const data = (await res.json().catch(() => null)) as
         | (AnalyzeResponse & { error?: string })
@@ -177,6 +181,7 @@ export default function NewAnalysisPage() {
       setError(
         userMessage(e, "Аналіз не вдався. Спробуйте ще раз."),
       );
+      setUploading(null);
       setLoading(false);
     }
   }
@@ -555,7 +560,7 @@ export default function NewAnalysisPage() {
               </span>
             </div>
             <p className="text-lg font-semibold tracking-tight">Аналізую лот</p>
-            <p className="mt-1 min-h-5 text-sm font-semibold text-accent-text">{LOADING_STAGES[stage]}</p>
+            <p className="mt-1 min-h-5 text-sm font-semibold text-accent-text">{uploading ? `Завантажую файли: ${uploading.done} з ${uploading.total}…` : LOADING_STAGES[stage]}</p>
             <p className="mt-3 text-xs text-muted">Зазвичай це триває до хвилини. Не закривайте сторінку.</p>
           </div>
         </div>

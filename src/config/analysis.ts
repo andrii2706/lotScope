@@ -38,4 +38,3 @@ export const OUTCOMES = [
   { icon: FileText, text: "PDF-звіт з вашим логотипом" },
 ];
 
-export const MAX_REQUEST_CHARS = 4_300_000;

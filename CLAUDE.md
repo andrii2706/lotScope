@@ -48,7 +48,7 @@ Not verified: accuracy of repair estimates against a sample of lots with known r
 - `lucide-react` — icons
 - `@fontsource-variable/geist` (interface font), `@fontsource-variable/geist-mono` (lot numbers, VIN)
 - Tests: built-in `node:test`, no extra libraries
-- Postgres through `pg` (plain SQL, schema in `db/schema.sql`, applied by `npm run db:migrate`): companies, users, sessions, invites, lessons, reports, report_photos, report_files, audit_log, market_cache, password_resets (`payments`, `usage`, `lot_unlocks` and `companies.plan/credits` are left from the removed billing and are no longer read). Reports and company settings live in the database
+- Postgres through `pg` (plain SQL, schema in `db/schema.sql`, applied by `npm run db:migrate`): companies, users, sessions, invites, lessons, reports, report_photos, report_files, analysis_uploads, audit_log, market_cache, password_resets (`payments`, `usage`, `lot_unlocks` and `companies.plan/credits` are left from the removed billing and are no longer read). Reports and company settings live in the database
 - Requires Node.js 20.9+
 
 ## Commands
@@ -148,10 +148,18 @@ docs/deploy.md               deployment guide (Ukrainian): step-by-step setup of
 1. `page.tsx` collects a `LotInput` and the photos. `lib/client/images.ts` compresses each photo in the
    browser into three copies: `data` (JPEG up to 1568 px, base64, sent for analysis),
    `thumb` (640 px), `cover` (1200 px).
-2. POST `/api/analyze` with `{ lot, images, pricing }`. `pricing` comes from the company
-   settings: labor rate, paint price per panel, parts preference.
-3. `route.ts` checks the session, audits `analyze`, sanitizes and validates the data (`sanitizeLot`), and
-   limits photo count and size.
+2. Each photo and each Carfax/AutoCheck file goes to `POST /api/analyze/upload` as its own request
+   (`uploadForAnalysis` in `lib/client/uploads.ts`, 3 in parallel, the loading screen shows
+   "Завантажую файли: N з M…"), so no request comes near the Vercel 4.5 MB body limit. The route
+   (`parseUpload` in `lib/server/uploads.ts`: kind `photo` or `history`, magic bytes, up to 4.2M chars)
+   stores the file in `analysis_uploads` and returns its `id`. Rows older than 2 hours are deleted on
+   every upload, and a user may have at most 60 pending rows.
+   Then POST `/api/analyze` with `{ lot, photoIds, historyIds, pricing, vinHistory }`. `pricing` comes
+   from the company settings: labor rate, paint price per panel, parts preference. Inline `images` and
+   `history` are still accepted when no ids are sent.
+3. `route.ts` checks the session, loads the uploads of this user in the order of the ids (410 when one
+   is missing or of the wrong kind), audits `analyze`, sanitizes and validates the data (`sanitizeLot`),
+   limits photo count and size, and deletes the used uploads when the analysis ends, successful or not.
 4. With no key, it returns `DEMO_ANALYSIS` with `demo: true`.
 5. With a key, it calls `client.messages.create` with `system: SYSTEM_PROMPT`, the lot text,
    photos labelled `Photo N:`, and `output_config.format` of type `json_schema`

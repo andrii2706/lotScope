@@ -224,11 +224,26 @@ export interface HistoryFile {
   data: string;
 }
 
+export type AnalysisUploadKind = "photo" | "history";
+
+export interface AnalysisUpload {
+  kind: AnalysisUploadKind;
+  name: string;
+  mediaType: HistoryMediaType;
+  data: string;
+}
+
+export interface AnalysisUploadResponse {
+  id: string;
+}
+
 export interface AnalyzeRequest {
   lot: LotInput;
-  images: { mediaType: "image/jpeg" | "image/png" | "image/webp"; data: string }[];
+  images?: { mediaType: "image/jpeg" | "image/png" | "image/webp"; data: string }[];
+  photoIds?: string[];
   pricing: Pick<Settings, "laborRateUsd" | "paintPerPanelUsd" | "partsPreference">;
   history?: HistoryFile[];
+  historyIds?: string[];
   vinHistory?: VinHistory | null;
 }
 
