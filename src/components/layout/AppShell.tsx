@@ -1,12 +1,14 @@
 "use client";
 
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 import type { CSSProperties, ReactNode } from "react";
 import { ConfirmHost } from "@/components/ui/ConfirmDialog";
 import { Notice } from "@/components/ui";
 import { NAV, isBarePath } from "@/config/navigation";
 import { refreshMe, useMe } from "@/lib/client/me";
+import { bootLang, useLang } from "@/lib/client/lang";
+import { t } from "@/lib/shared/i18n";
 import { saveSettings, useSettings } from "@/lib/client/store";
 import { useResolvedTheme } from "@/lib/client/theme";
 import { accentInk, accentText } from "@/lib/shared/color";
@@ -26,6 +28,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const theme = useResolvedTheme(settings.theme);
   const me = useMe();
+  const lang = useLang();
   const bare = isBarePath(pathname);
   const loading = me.status === "loading";
   const user = me.status === "ready" ? me.user : null;
@@ -35,6 +38,10 @@ export function AppShell({ children }: { children: ReactNode }) {
   const required = routePermission(pathname);
   const forbidden = Boolean(user && !bare && required && !allows(user.role, required));
   const expiresAt = user ? Date.parse(user.sessionExpiresAt) : 0;
+
+  useEffect(() => {
+    bootLang();
+  }, []);
 
   useEffect(() => {
     if (user && forbidden) router.replace(homeFor(user.role));
@@ -65,7 +72,7 @@ export function AppShell({ children }: { children: ReactNode }) {
     "--accent-text-print": accentText(settings.accentColor, "light"),
   } as CSSProperties;
 
-  if (bare) return <AuthLayout style={style}>{children}</AuthLayout>;
+  if (bare) return <AuthLayout style={style}><Fragment key={lang}>{children}</Fragment></AuthLayout>;
 
   const toggleTheme = () => saveSettings({ ...settings, theme: theme === "dark" ? "light" : "dark" });
   const logout = async () => {
@@ -84,18 +91,18 @@ export function AppShell({ children }: { children: ReactNode }) {
       <main className="min-w-0 flex-1 px-4 pb-16 pt-6 sm:px-6 lg:px-10 lg:pt-8 print:p-0">
         <div className="mx-auto max-w-[1180px]">
           {failed ? (
-            <Notice tone="warn" title="Не вдалося завантажити дані">
-              {me.status === "ready" && me.dbError} Повторюю спробу автоматично.
+            <Notice tone="warn" title={t("Не вдалося завантажити дані")}>
+              {me.status === "ready" && me.dbError ? t(me.dbError) : ""} {t("Повторюю спробу автоматично.")}
             </Notice>
           ) : user?.suspended ? (
             <div className="card mx-auto max-w-lg p-8 text-center">
-              <h1 className="text-xl font-bold">Доступ призупинено</h1>
+              <h1 className="text-xl font-bold">{t("Доступ призупинено")}</h1>
               <p className="mt-2 text-sm text-muted">
-                Доступ вашої компанії до LotScope тимчасово вимкнено.{user.suspendedReason ? ` ${user.suspendedReason}` : ""} Зверніться до адміністратора сервісу.
+                {t("Доступ вашої компанії до LotScope тимчасово вимкнено.")}{user.suspendedReason ? ` ${user.suspendedReason}` : ""} {t("Зверніться до адміністратора сервісу.")}
               </p>
             </div>
           ) : forbidden || loading || signedOut ? null : (
-            children
+            <Fragment key={lang}>{children}</Fragment>
           )}
         </div>
       </main>

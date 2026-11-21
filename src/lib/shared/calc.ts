@@ -1,5 +1,7 @@
 import { tableAuctionFee } from "./auctionFees.ts";
 import { AUCTIONS, regionOf } from "./auctions.ts";
+import { calculatePl } from "./calcPl.ts";
+import { fmtInt } from "./i18n.ts";
 import type { CostGroup, CostResult } from "@/types/pricing";
 import type { Region } from "@/types/auction";
 import type { CostOverrides, LotInput, Settings } from "@/types/report";
@@ -140,6 +142,7 @@ export function calculate(
   repair: { min: number; max: number },
   now = new Date(),
 ): CostResult {
+  if (settings.market === "pl") return calculatePl(lot, settings, overrides, repair);
   const r = resolve(lot, settings, overrides);
   const c = customs(lot, settings, r, now);
   const age = ageCoefficient(lot.year, now);
@@ -262,6 +265,8 @@ export function calculate(
   }
 
   return {
+    currency: "USD",
+    rate: 1,
     groups,
     customsValueUsd: round(c.customsValue),
     ageCoefficient: age,
@@ -280,4 +285,20 @@ export function calculate(
   };
 }
 
-export const usd = (n: number) => `${Math.round(n).toLocaleString("uk-UA")} $`;
+export const usd = (n: number) => `${fmtInt(n)} $`;
+
+export type Money = Pick<CostResult, "currency" | "rate">;
+
+export function moneyOf(s: Pick<Settings, "market" | "usdPln">): Money {
+  return s.market === "pl" ? { currency: "PLN", rate: s.usdPln > 0 ? s.usdPln : 1 } : { currency: "USD", rate: 1 };
+}
+
+export function money(n: number, m: Money): string {
+  return m.currency === "PLN" ? `${fmtInt(n * m.rate)} zł` : usd(n);
+}
+
+export function moneyRange(min: number, max: number, m: Money): string {
+  return m.currency === "PLN" ? `${fmtInt(min * m.rate)} – ${fmtInt(max * m.rate)} zł` : `${fmtInt(min)} – ${usd(max)}`;
+}
+
+export const currencySign = (m: Money): string => (m.currency === "PLN" ? "zł" : "$");

@@ -1,4 +1,5 @@
 import type { AuctionSale, BrandRecord, TitleRecord, VinHistory } from "@/types/vin";
+import { t, localeOf } from "./i18n.ts";
 type Rec = Record<string, unknown>;
 const isRec = (v: unknown): v is Rec => typeof v === "object" && v !== null && !Array.isArray(v);
 const text = (v: unknown, max = 120) =>
@@ -37,11 +38,11 @@ export function mapVinAudit(raw: unknown): { titleRecords: TitleRecord[]; brands
   if (!isRec(raw)) return { titleRecords: [], brands: [] };
   const list = (v: unknown) => (Array.isArray(v) ? v.filter(isRec) : []);
   const titleRecords = list(raw.titles)
-    .map((t) => ({
-      date: text(t.date, 30),
-      state: text(t.state ?? t.datestate, 30),
-      odometer: Math.round(num(t.meter)),
-      unit: (text(t.meterUnit, 4).toUpperCase() === "K" ? "km" : "mi") as "mi" | "km",
+    .map((item) => ({
+      date: text(item.date, 30),
+      state: text(item.state ?? item.datestate, 30),
+      odometer: Math.round(num(item.meter)),
+      unit: (text(item.meterUnit, 4).toUpperCase() === "K" ? "km" : "mi") as "mi" | "km",
     }))
     .sort(byDate)
     .slice(-30);
@@ -64,10 +65,10 @@ export function mapVinAudit(raw: unknown): { titleRecords: TitleRecord[]; brands
 
 export function odometerReadings(h: VinHistory): { date: string; miles: number; source: string }[] {
   const readings = [
-    ...h.auctionSales.filter((s) => s.odometer > 0).map((s) => ({ date: s.date, miles: s.odometer, source: s.auction || "аукціон" })),
+    ...h.auctionSales.filter((s) => s.odometer > 0).map((s) => ({ date: s.date, miles: s.odometer, source: s.auction || t("аукціон") })),
     ...h.titleRecords
-      .filter((t) => t.odometer > 0)
-      .map((t) => ({ date: t.date, miles: t.unit === "km" ? Math.round(t.odometer / 1.609) : t.odometer, source: `титул ${t.state}`.trim() })),
+      .filter((item) => item.odometer > 0)
+      .map((item) => ({ date: item.date, miles: item.unit === "km" ? Math.round(item.odometer / 1.609) : item.odometer, source: t("титул {v0}", { v0: item.state }).trim() })),
   ];
   return readings.filter((r) => r.date).sort((a, b) => a.date.localeCompare(b.date));
 }
@@ -80,7 +81,7 @@ export function mileageIssues(h: VinHistory): string[] {
     const cur = readings[i];
     if (cur.miles < prev.miles - 500) {
       issues.push(
-        `Пробіг в історії зменшився: ${prev.miles.toLocaleString("uk-UA")} mi (${prev.date.slice(0, 10)}, ${prev.source}) → ${cur.miles.toLocaleString("uk-UA")} mi (${cur.date.slice(0, 10)}, ${cur.source}). Можливе скручування.`,
+        t("Пробіг в історії зменшився: {v0} mi ({v1}, {v2}) → {v3} mi ({v4}, {v5}). Можливе скручування.", { v0: prev.miles.toLocaleString(localeOf()), v1: prev.date.slice(0, 10), v2: prev.source, v3: cur.miles.toLocaleString(localeOf()), v4: cur.date.slice(0, 10), v5: cur.source }),
       );
     }
   }
@@ -95,7 +96,7 @@ export function previousAuctionFlags(h: VinHistory, currentLot: string): string[
     .slice(-3)
     .map((s) => `${s.date.slice(0, 10)} ${s.auction} ${s.damage || ""}`.trim())
     .join("; ");
-  return [`Авто вже виставлялося на аукціон ${earlier.length} раз(и)${sold.length ? `, продавалося ${sold.length}` : ""}: ${list}.`];
+  return [t("Авто вже виставлялося на аукціон {v0} раз(и){v1}: {v2}.", { v0: earlier.length, v1: sold.length ? `, продавалося ${sold.length}` : "", v2: list })];
 }
 
 export function historyToText(h: VinHistory): string {
@@ -110,7 +111,7 @@ export function historyToText(h: VinHistory): string {
   }
   if (h.titleRecords.length) {
     lines.push("Title records (NMVTIS, oldest first):");
-    for (const t of h.titleRecords) lines.push(`- ${t.date || "date unknown"}, ${t.state || "state unknown"}${t.odometer ? `, odometer ${t.odometer} ${t.unit}` : ""}`);
+    for (const item of h.titleRecords) lines.push(`- ${item.date || "date unknown"}, ${item.state || "state unknown"}${item.odometer ? `, odometer ${item.odometer} ${item.unit}` : ""}`);
   }
   if (h.brands.length) {
     lines.push("Title brands and junk/salvage/insurance records:");
@@ -139,11 +140,11 @@ export function sanitizeHistory(raw: unknown): VinHistory | null {
       titleType: text(s.titleType, 60),
       location: text(s.location, 80),
     })),
-    titleRecords: arr(raw.titleRecords).slice(-30).map((t) => ({
-      date: text(t.date, 30),
-      state: text(t.state, 30),
-      odometer: Math.max(0, Math.round(num(t.odometer))),
-      unit: t.unit === "km" ? "km" : "mi",
+    titleRecords: arr(raw.titleRecords).slice(-30).map((item) => ({
+      date: text(item.date, 30),
+      state: text(item.state, 30),
+      odometer: Math.max(0, Math.round(num(item.odometer))),
+      unit: item.unit === "km" ? "km" : "mi",
     })),
     brands: arr(raw.brands).slice(-30).map((b) => ({ date: text(b.date, 30), name: text(b.name, 120), source: text(b.source, 80) })),
     fetchedAt: text(raw.fetchedAt, 40),

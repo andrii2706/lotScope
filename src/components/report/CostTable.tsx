@@ -1,8 +1,9 @@
 "use client";
 
-import { usd } from "@/lib/shared/calc";
+import { money, moneyRange } from "@/lib/shared/calc";
 import type { CostResult } from "@/types/pricing";
 import type { CostOverrides } from "@/types/report";
+import { t } from "@/lib/shared/i18n";
 
 const SERIES = ["var(--series-1)", "var(--series-2)", "var(--series-3)", "var(--series-4)"];
 
@@ -11,7 +12,7 @@ export function CostBar({ cost, compact }: { cost: CostResult; compact?: boolean
   if (total <= 0) return null;
   return (
     <figure className="avoid-break">
-      <div className="flex h-3.5 w-full gap-0.5" role="img" aria-label="Структура ціни під ключ">
+      <div className="flex h-3.5 w-full gap-0.5" role="img" aria-label={t("Структура ціни під ключ")}>
         {cost.groups.map((group, i) => {
           const share = (group.subtotal / total) * 100;
           if (share <= 0) return null;
@@ -23,7 +24,7 @@ export function CostBar({ cost, compact }: { cost: CostResult; compact?: boolean
               style={{ width: `${share}%`, background: SERIES[i] }}
             >
               <span className="pointer-events-none absolute bottom-full left-1/2 z-10 mb-2 hidden -translate-x-1/2 whitespace-nowrap rounded-lg bg-ink px-2.5 py-1.5 text-xs font-bold text-on-ink shadow-pop group-hover:block group-focus-visible:block">
-                {group.title}: {usd(group.subtotal)} · {share.toFixed(0)} %
+                {group.title}: {money(group.subtotal, cost)} · {share.toFixed(0)} %
               </span>
             </div>
           );
@@ -36,7 +37,7 @@ export function CostBar({ cost, compact }: { cost: CostResult; compact?: boolean
             <span className="min-w-0">
               <span className="block text-xs font-semibold text-muted">{group.title}</span>
               <span className="block text-sm font-semibold">
-                {usd(group.subtotal)}
+                {money(group.subtotal, cost)}
                 <span className="ml-1.5 text-xs font-semibold text-faint">
                   {((group.subtotal / total) * 100).toFixed(0)} %
                 </span>
@@ -68,6 +69,7 @@ export function CostTable({
             <GroupRows
               key={group.title}
               group={group}
+              cost={cost}
               color={SERIES[i]}
               editing={editing}
               overrides={overrides}
@@ -76,11 +78,11 @@ export function CostTable({
           ))}
           <tr className="bg-panel2">
             <th scope="row" className="px-4 py-3.5 text-left text-[15px] font-semibold">
-              Разом під ключ
-              <span className="block text-xs font-medium text-muted">з урахуванням вилки ремонту</span>
+              {t("Разом під ключ")}
+              <span className="block text-xs font-medium text-muted">{t("з урахуванням вилки ремонту")}</span>
             </th>
             <td className="whitespace-nowrap px-4 py-3.5 text-right text-[15px] font-semibold">
-              {usd(cost.totalMinUsd)} – {usd(cost.totalMaxUsd)}
+              {moneyRange(cost.totalMinUsd, cost.totalMaxUsd, cost)}
             </td>
           </tr>
         </tbody>
@@ -91,12 +93,14 @@ export function CostTable({
 
 function GroupRows({
   group,
+  cost,
   color,
   editing,
   overrides,
   onOverride,
 }: {
   group: CostResult["groups"][number];
+  cost: CostResult;
   color: string;
   editing: boolean;
   overrides: CostOverrides;
@@ -111,11 +115,12 @@ function GroupRows({
             {group.title}
           </span>
         </th>
-        <td className="px-4 py-2.5 text-right text-xs font-semibold text-ink/70">{usd(group.subtotal)}</td>
+        <td className="px-4 py-2.5 text-right text-xs font-semibold text-ink/70">{money(group.subtotal, cost)}</td>
       </tr>
       {group.lines.map((line) => {
         const key = line.editable;
         const changed = key !== undefined && overrides[key] !== undefined;
+        const factor = line.inputUsd ? 1 : cost.rate;
         return (
           <tr key={line.key} className="border-b border-line last:border-b-0">
             <td className="px-4 py-2.5">
@@ -131,23 +136,23 @@ function GroupRows({
                       className="text-xs font-bold text-accent-text underline-offset-2 hover:underline"
                       onClick={() => onOverride(key, undefined)}
                     >
-                      скинути
+                      {t("скинути")}
                     </button>
                   )}
                   <input
                     type="number"
                     min={0}
-                    aria-label={line.label}
+                    aria-label={`${line.label}, ${line.inputUsd ? "$" : cost.currency === "PLN" ? "zł" : "$"}`}
                     className="control !min-h-9 w-28 !py-1 text-right"
-                    value={line.usd}
+                    value={Math.round(line.usd * factor)}
                     onChange={(e) => {
                       const v = Number(e.target.value);
-                      onOverride(key, e.target.value === "" || !Number.isFinite(v) ? 0 : Math.max(0, v));
+                      onOverride(key, e.target.value === "" || !Number.isFinite(v) ? 0 : Math.max(0, v) / factor);
                     }}
                   />
                 </span>
               ) : null}
-              <span className={editing && key ? "hidden print:inline" : ""}>{usd(line.usd)}</span>
+              <span className={editing && key ? "hidden print:inline" : ""}>{money(line.usd, cost)}</span>
             </td>
           </tr>
         );

@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import { CostBar, CostTable } from "@/components/report/CostTable";
 import { ScoreRing } from "@/components/report/ScoreRing";
-import { usd } from "@/lib/shared/calc";
+import { money, moneyRange, usd } from "@/lib/shared/calc";
 import { partRange } from "@/lib/shared/partsPricing";
 import {
   ACTION,
@@ -17,6 +17,7 @@ import {
 } from "@/lib/shared/labels";
 import type { CostResult } from "@/types/pricing";
 import type { Report, Settings } from "@/types/report";
+import { t, localeOf, fmtNum } from "@/lib/shared/i18n";
 
 export function PrintReport({
   report,
@@ -50,21 +51,19 @@ export function PrintReport({
             </span>
           )}
           <div>
-            <p className="text-lg font-extrabold leading-tight">{settings.companyName || "Звіт про лот"}</p>
+            <p className="text-lg font-extrabold leading-tight">{settings.companyName || t("Звіт про лот")}</p>
             {settings.companyContact && <p className="text-sm text-muted">{settings.companyContact}</p>}
           </div>
         </div>
         <div className="text-right text-sm text-muted">
-          <p className="font-extrabold text-ink">Звіт про лот</p>
+          <p className="font-extrabold text-ink">{t("Звіт про лот")}</p>
           <p>{formatDate(report.createdAt)}</p>
         </div>
       </header>
 
       {report.demo && (
         <p className="mt-4 rounded-xl border border-warn/30 bg-warn-bg px-4 py-3 text-sm">
-          <b className="text-warn">Демо-звіт: це не аналіз ваших фото.</b> Опис пошкоджень і вилка ремонту —
-          заздалегідь підготовлений приклад. Розрахунок розмитнення та ціни під ключ зроблено за введеними
-          даними лота.
+          <b className="text-warn">{t("Демо-звіт: це не аналіз ваших фото.")}</b> {t("Опис пошкоджень і вилка ремонту — заздалегідь підготовлений приклад. Розрахунок розмитнення та ціни під ключ зроблено за введеними даними лота.")}
         </p>
       )}
 
@@ -86,7 +85,7 @@ export function PrintReport({
           {description.length > 0 && <p className="mt-2 text-sm leading-relaxed text-ink/85">{description.join(" ")}</p>}
           <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
             {facts.map(([label, value]) => (
-              <div key={label} className={label.startsWith("VIN") || label === "Пошкодження" || label === "Документ" ? "col-span-2" : ""}>
+              <div key={label} className={label.startsWith("VIN") || label === t("Пошкодження") || label === t("Документ") ? "col-span-2" : ""}>
                 <dt className="text-xs font-semibold text-muted">{label}</dt>
                 <dd className="font-bold">{value}</dd>
               </div>
@@ -95,7 +94,7 @@ export function PrintReport({
           <div className={`avoid-break mt-4 flex items-center gap-4 rounded-xl p-3.5 ${TONE_BG[verdict.tone]}`}>
             <ScoreRing score={analysis.conditionScore} tone={verdict.tone} size={68} />
             <div>
-              <p className="text-[11px] font-extrabold uppercase tracking-wider text-muted">Висновок</p>
+              <p className="text-[11px] font-extrabold uppercase tracking-wider text-muted">{t("Висновок")}</p>
               <p className={`text-xl font-extrabold leading-tight ${TONE_TEXT[verdict.tone]}`}>{verdict.label}</p>
               <p className="mt-0.5 text-sm leading-snug text-ink/70">{verdict.text}</p>
             </div>
@@ -105,42 +104,42 @@ export function PrintReport({
 
       <section className="mt-5 grid grid-cols-[1.3fr_1fr_1fr] gap-3">
         <div className="avoid-break rounded-xl bg-ink p-4 text-on-ink">
-          <p className="text-xs font-bold uppercase tracking-wider opacity-65">Ціна під ключ</p>
+          <p className="text-xs font-bold uppercase tracking-wider opacity-65">{t("Ціна під ключ")}</p>
           <p className="mt-1.5 whitespace-nowrap text-xl font-extrabold leading-tight">
-            {Math.round(cost.totalMinUsd).toLocaleString("uk-UA")} – {usd(cost.totalMaxUsd)}
+            {moneyRange(cost.totalMinUsd, cost.totalMaxUsd, cost)}
           </p>
-          <p className="mt-1 text-sm opacity-65">{bid > 0 ? `при ставці ${usd(bid)}` : "без вартості авто"}</p>
+          <p className="mt-1 text-sm opacity-65">{bid > 0 ? t("при ставці {v0}", { v0: usd(bid) }) : t("без вартості авто")}</p>
         </div>
         <Tile
-          label="Максимальна ставка"
-          value={hasMarket ? (cost.maxBidUsd ? usd(cost.maxBidUsd) : "Недосяжно") : "—"}
-          note={hasMarket ? `для вигоди ${settings.targetSavingsPct} %` : "ринкову ціну не вказано"}
+          label={t("Максимальна ставка")}
+          value={hasMarket ? (cost.maxBidUsd ? usd(cost.maxBidUsd) : t("Недосяжно")) : "—"}
+          note={hasMarket ? t("для вигоди {v0} %", { v0: settings.targetSavingsPct }) : t("ринкову ціну не вказано")}
         />
         <Tile
-          label={hasMarket && cost.savingsUsd < 0 ? "Переплата" : "Вигода для клієнта"}
-          value={hasMarket ? `${usd(Math.abs(cost.savingsUsd))} (${Math.abs(cost.savingsPct).toFixed(0)} %)` : "—"}
-          note={hasMarket ? `ринок в Україні ${usd(cost.marketPriceUsd)}` : "порівняння недоступне"}
+          label={hasMarket && cost.savingsUsd < 0 ? t("Переплата") : t("Вигода для клієнта")}
+          value={hasMarket ? `${money(Math.abs(cost.savingsUsd), cost)} (${Math.abs(cost.savingsPct).toFixed(0)} %)` : "—"}
+          note={hasMarket ? t("ринок в Україні {v0}", { v0: money(cost.marketPriceUsd, cost) }) : t("порівняння недоступне")}
         />
       </section>
 
-      <Block title="Коротко" flow>
+      <Block title={t("Коротко")} flow>
         <p className="text-[15px] leading-relaxed">{analysis.summary}</p>
         <dl className="mt-3 grid grid-cols-3 gap-3">
-          <Tile label="Зона удару" value={analysis.impactZone || "не визначено"} small />
-          <Tile label="Ризик для силової структури" value={LEVEL[analysis.structuralRisk]} note={analysis.structuralRiskNote} small />
-          <Tile label="Подушки за фото" value={AIRBAG[analysis.airbagAssessment]} note={analysis.airbagNote} small />
+          <Tile label={t("Зона удару")} value={analysis.impactZone || t("не визначено")} small />
+          <Tile label={t("Ризик для силової структури")} value={LEVEL[analysis.structuralRisk]} note={analysis.structuralRiskNote} small />
+          <Tile label={t("Подушки за фото")} value={AIRBAG[analysis.airbagAssessment]} note={analysis.airbagNote} small />
         </dl>
       </Block>
 
       {analysis.damagedParts.length > 0 && (
-        <Block title="Пошкоджені деталі" flow>
+        <Block title={t("Пошкоджені деталі")} flow>
           <table className="w-full overflow-hidden rounded-xl text-sm">
             <thead className="bg-panel2 text-left text-xs font-bold uppercase tracking-wide text-muted">
               <tr>
-                <th className="px-3 py-2">Деталь</th>
-                <th className="px-3 py-2">Що робити</th>
-                <th className="px-3 py-2">Впевненість</th>
-                <th className="px-3 py-2 text-right">Вартість</th>
+                <th className="px-3 py-2">{t("Деталь")}</th>
+                <th className="px-3 py-2">{t("Що робити")}</th>
+                <th className="px-3 py-2">{t("Впевненість")}</th>
+                <th className="px-3 py-2 text-right">{t("Вартість")}</th>
               </tr>
             </thead>
             <tbody>
@@ -153,7 +152,7 @@ export function PrintReport({
                   <td className="px-3 py-2">{ACTION[part.action]}</td>
                   <td className="px-3 py-2">{CONFIDENCE[part.confidence]}</td>
                   <td className="whitespace-nowrap px-3 py-2 text-right font-bold">
-                    {usd(part.costMinUsd)} – {usd(part.costMaxUsd)}
+                    {moneyRange(part.costMinUsd, part.costMaxUsd, cost)}
                   </td>
                 </tr>
               ))}
@@ -163,7 +162,7 @@ export function PrintReport({
       )}
 
       {analysis.scenarios.length > 0 && (
-        <Block title="Сценарії ремонту">
+        <Block title={t("Сценарії ремонту")}>
           <ul className="grid grid-cols-3 gap-3">
             {analysis.scenarios.map((s, i) => (
               <li key={i} className="flex flex-col rounded-xl border border-line p-3.5">
@@ -173,7 +172,7 @@ export function PrintReport({
                 <p className="mt-1 font-extrabold leading-snug">{s.name}</p>
                 <p className="mt-1 flex-1 text-sm leading-snug text-muted">{s.description}</p>
                 <p className="mt-2 text-lg font-extrabold">
-                  {usd(s.repairMinUsd)} – {usd(s.repairMaxUsd)}
+                  {moneyRange(s.repairMinUsd, s.repairMaxUsd, cost)}
                 </p>
                 <div className="relative mt-1.5 h-1.5 rounded-full bg-line">
                   <span
@@ -191,18 +190,18 @@ export function PrintReport({
       )}
 
       <div className="mt-6 grid grid-cols-2 gap-x-8 gap-y-5">
-        <List title="Ризики" items={analysis.redFlags} empty="Явних ризиків на фото не видно." dot="bg-bad" />
-        <List title="Що на користь лота" items={analysis.positives} empty="Не виявлено." dot="bg-good" />
-        <List title="Яких фото бракує" items={analysis.missingViews} empty="Фото достатньо." dot="bg-warn" />
-        <List title="Перевірити перед ставкою" items={analysis.inspectionChecklist} empty="—" dot="bg-muted" />
+        <List title={t("Ризики")} items={analysis.redFlags} empty={t("Явних ризиків на фото не видно.")} dot="bg-bad" />
+        <List title={t("Що на користь лота")} items={analysis.positives} empty={t("Не виявлено.")} dot="bg-good" />
+        <List title={t("Яких фото бракує")} items={analysis.missingViews} empty={t("Фото достатньо.")} dot="bg-warn" />
+        <List title={t("Перевірити перед ставкою")} items={analysis.inspectionChecklist} empty="—" dot="bg-muted" />
       </div>
 
       {report.expert && (
         <div className="avoid-break mt-6 rounded-xl border border-line px-4 py-3 text-sm">
           <p className="font-extrabold">
-            Перевірено експертом СТО: {report.expert.expert}
-            {report.expert.verdict && ` · висновок: ${VERDICT[report.expert.verdict].label}`}
-            {report.expert.repairMaxUsd > 0 && ` · ремонт ${usd(report.expert.repairMinUsd)}–${usd(report.expert.repairMaxUsd)}`}
+            {t("Перевірено експертом СТО:")} {report.expert.expert}
+            {report.expert.verdict && t(" · висновок: {v0}", { v0: VERDICT[report.expert.verdict].label })}
+            {report.expert.repairMaxUsd > 0 && t(" · ремонт {v0}", { v0: moneyRange(report.expert.repairMinUsd, report.expert.repairMaxUsd, cost) })}
           </p>
           {report.expert.comment && <p className="mt-1 leading-relaxed text-muted">{report.expert.comment}</p>}
         </div>
@@ -212,11 +211,11 @@ export function PrintReport({
         <div className="avoid-break mt-6 grid grid-cols-2 gap-x-8 gap-y-5">
           {analysis.historyProvided && (
             <List
-              title="Історія за VIN"
+              title={t("Історія за VIN")}
               items={[
                 analysis.historySummary,
                 ...(analysis.historyFindings ?? []),
-                report.historyDocs?.length ? `Додані звіти історії: ${report.historyDocs.map((d) => d.name).join(", ")}.` : "",
+                report.historyDocs?.length ? t("Додані звіти історії: {v0}.", { v0: report.historyDocs.map((d) => d.name).join(", ") }) : "",
               ].filter(Boolean)}
               empty="—"
               dot="bg-accent"
@@ -224,10 +223,10 @@ export function PrintReport({
           )}
           {report.comparables?.stats && (
             <List
-              title="Продажі схожих лотів"
+              title={t("Продажі схожих лотів")}
               items={[
-                `Медіана ${usd(report.comparables.stats.medianUsd)}, середина ринку ${usd(report.comparables.stats.p25Usd)}–${usd(report.comparables.stats.p75Usd)}.`,
-                `Продажів: ${report.comparables.stats.count} (${report.comparables.query}).`,
+                t("Медіана {v0}, середина ринку {v1}–{v2}.", { v0: usd(report.comparables.stats.medianUsd), v1: usd(report.comparables.stats.p25Usd), v2: usd(report.comparables.stats.p75Usd) }),
+                t("Продажів: {v0} ({v1}).", { v0: report.comparables.stats.count, v1: report.comparables.query }),
               ]}
               empty="—"
               dot="bg-muted"
@@ -236,20 +235,21 @@ export function PrintReport({
         </div>
       )}
 
-      <Block title="З чого складається ціна під ключ" flow>
+      <Block title={t("З чого складається ціна під ключ")} flow>
         <CostBar cost={cost} />
         <div className="mt-4">
           <CostTable cost={cost} editing={false} overrides={report.overrides} onOverride={() => {}} />
         </div>
         <p className="mt-2 text-xs leading-relaxed text-muted">
-          Митна вартість {usd(cost.customsValueUsd)}. Курси{settings.autoRates ? " НБУ" : ""}: 1 € = {settings.eurUsd} $, 1 $ = {settings.usdUah}{" "}
-          грн. Збір аукціону та логістика — оцінка за тарифами компанії.
-          {report.lot.marketSource && report.overrides.marketPriceUsd === undefined ? ` Ринкова ціна: ${report.lot.marketSource}.` : ""}
+          {cost.currency === "PLN"
+            ? `Wartość celna ${money(cost.customsValueUsd, cost)}. Kurs${settings.autoRates ? " NBP" : ""}: 1 $ = ${fmtNum(settings.usdPln)} zł, 1 € = ${fmtNum(settings.eurPln)} zł. Opłaty aukcji i logistyka — według stawek firmy.`
+            : <>{t("Митна вартість")} {usd(cost.customsValueUsd)}{t(". Курси")}{settings.autoRates ? t(" НБУ") : ""}: 1 € = {settings.eurUsd} $, 1 $ = {settings.usdUah} {t("грн. Збір аукціону та логістика — оцінка за тарифами компанії.")}</>}
+          {report.lot.marketSource && report.overrides.marketPriceUsd === undefined ? t(" Ринкова ціна: {v0}.", { v0: report.lot.marketSource }) : ""}
         </p>
       </Block>
 
       {report.partsSearch && report.partsSearch.parts.some((p) => p.offers.length > 0) && (
-        <Block title="Ціни запчастин (Allegro, OLX)">
+        <Block title={t("Ціни запчастин (Allegro, OLX)")}>
           <table className="w-full text-sm">
             <tbody>
               {report.partsSearch.parts.map((p) => {
@@ -258,23 +258,21 @@ export function PrintReport({
                 return (
                   <tr key={p.part} className="border-b border-line last:border-b-0">
                     <td className="py-1.5 pr-3 font-semibold">{p.part}</td>
-                    <td className="py-1.5 pr-3 text-muted">{best ? `${best.source}: ${Math.round(best.price).toLocaleString("uk-UA")} ${best.currency}` : "не знайдено"}</td>
-                    <td className="py-1.5 text-right font-bold">{r.found ? `${Math.round(r.minUsd).toLocaleString("uk-UA")}–${usd(r.maxUsd)}` : "—"}</td>
+                    <td className="py-1.5 pr-3 text-muted">{best ? `${best.source}: ${Math.round(best.price).toLocaleString(localeOf())} ${best.currency}` : t("не знайдено")}</td>
+                    <td className="py-1.5 text-right font-bold">{r.found ? moneyRange(r.minUsd, r.maxUsd, cost) : "—"}</td>
                   </tr>
                 );
               })}
             </tbody>
           </table>
           <p className="mt-1.5 text-xs text-muted">
-            Ціни з оголошень на {new Date(report.partsSearch.checkedAt).toLocaleDateString("uk-UA")}, з роботами з установки. Наявність і сумісність уточнюються перед покупкою.
+            {t("Ціни з оголошень на")} {new Date(report.partsSearch.checkedAt).toLocaleDateString(localeOf())}{t(", з роботами з установки. Наявність і сумісність уточнюються перед покупкою.")}
           </p>
         </Block>
       )}
 
       <footer className="avoid-break mt-5 rounded-xl bg-panel2 px-4 py-3 text-xs leading-relaxed text-muted">
-        Оцінку пошкоджень зроблено штучним інтелектом за фото з аукціону. Вона не замінює огляд авто на
-        майданчику та перевірку історії за VIN: приховані пошкодження на фото не видно. Суми є попередніми і
-        можуть змінитися після торгів та фактичного ремонту.
+        {t("Оцінку пошкоджень зроблено штучним інтелектом за фото з аукціону. Вона не замінює огляд авто на майданчику та перевірку історії за VIN: приховані пошкодження на фото не видно. Суми є попередніми і можуть змінитися після торгів та фактичного ремонту.")}
       </footer>
     </article>
   );

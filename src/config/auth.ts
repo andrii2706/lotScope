@@ -1,4 +1,5 @@
-export const GOOGLE_ERRORS: Record<string, string> = {
+import { L } from "@/lib/shared/i18n";
+export const GOOGLE_ERRORS: Record<string, string> = L({
   google_off: "Вхід через Google не налаштований.",
   google_denied: "Вхід через Google скасовано або сесія застаріла. Спробуйте ще раз.",
   google_failed: "Не вдалося увійти через Google. Спробуйте ще раз.",
@@ -9,4 +10,4 @@ export const GOOGLE_ERRORS: Record<string, string> = {
   google_invite: "Запрошення недійсне або прострочене. Попросіть адміністратора надіслати нове.",
   google_full: "У компанії немає вільних робочих місць. Зверніться до адміністратора.",
   google_noaccess: "Для цієї пошти ще немає доступу. Попросіть адміністратора вашої компанії надіслати запрошення.",
-};
+});

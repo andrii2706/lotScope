@@ -2,6 +2,7 @@ import { newToken, normalizeEmail, sha256 } from "./auth.ts";
 import { appUrl } from "./http.ts";
 import { inviteEmail, sendMail } from "./mail.ts";
 import { ROLE_LABEL } from "../shared/roles.ts";
+import { langOf, withLang } from "../shared/i18n.ts";
 import { query, tx } from "./db.ts";
 import type { Role, Target } from "@/types/auth";
 import type { InviteResult } from "@/types/team";
@@ -35,11 +36,13 @@ export async function inviteByEmail(opts: {
   if (!email) return { error: "Вкажіть коректну пошту людини, якій надсилаєте запрошення.", status: 400 };
   const taken = await query("select 1 from users where email = $1", [email]);
   if (taken.length) return { error: "Людина з такою поштою вже має доступ до LotScope.", status: 409 };
-  const company = (await query<{ name: string }>("select name from companies where id = $1", [opts.companyId]))[0]?.name ?? "LotScope";
+  const row = (await query<{ name: string; market: string | null }>("select name, settings->>'market' as market from companies where id = $1", [opts.companyId]))[0];
+  const company = row?.name ?? "LotScope";
+  const lang = langOf(row?.market);
   const made = await createInvite(opts.companyId, opts.role, opts.createdBy, opts.teamId ?? null, email);
   const url = `${appUrl(opts.request)}/invite/${made.token}`;
-  const label = ROLE_LABEL[opts.role as Role] ?? opts.role;
-  const emailed = await sendMail({ to: email, ...inviteEmail({ companyName: company, roleLabel: label, inviter: opts.inviterName, link: url, days: INVITE_DAYS }) });
+  const label = withLang(lang, () => ROLE_LABEL[opts.role as Role] ?? opts.role);
+  const emailed = await sendMail({ to: email, ...inviteEmail({ companyName: company, roleLabel: label, inviter: opts.inviterName, link: url, days: INVITE_DAYS, lang }) });
   return { url, days: INVITE_DAYS, email, emailed };
 }
 

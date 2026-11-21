@@ -1,6 +1,7 @@
 import type { AirbagStatus, Level, LotInput, PartAction, Verdict } from "@/types/report";
+import { L, localeOf } from "./i18n.ts";
 
-export const VERDICT: Record<Verdict, { label: string; tone: "good" | "warn" | "bad"; text: string }> = {
+export const VERDICT: Record<Verdict, { label: string; tone: "good" | "warn" | "bad"; text: string }> = L({
   buy: { label: "Можна брати", tone: "good", text: "Пошкодження обмежені, критичних ризиків не видно." },
   caution: {
     label: "З обережністю",
@@ -8,35 +9,35 @@ export const VERDICT: Record<Verdict, { label: string; tone: "good" | "warn" | "
     text: "Результат залежить від того, чого не видно на фото.",
   },
   avoid: { label: "Краще пропустити", tone: "bad", text: "Ризики або ремонт надто великі для цього лота." },
-};
+});
 
-export const LEVEL: Record<Level, string> = { low: "низький", medium: "середній", high: "високий" };
-export const LIKELIHOOD: Record<Level, string> = {
+export const LEVEL: Record<Level, string> = L({ low: "низький", medium: "середній", high: "високий" });
+export const LIKELIHOOD: Record<Level, string> = L({
   low: "малоймовірно",
   medium: "можливо",
   high: "найімовірніше",
-};
-export const CONFIDENCE: Record<Level, string> = { low: "низька", medium: "середня", high: "висока" };
+});
+export const CONFIDENCE: Record<Level, string> = L({ low: "низька", medium: "середня", high: "висока" });
 
-export const ACTION: Record<PartAction, string> = {
+export const ACTION: Record<PartAction, string> = L({
   replace: "Заміна",
   repair: "Ремонт",
   paint: "Фарбування",
   inspect: "Перевірити",
-};
+});
 
-export const AIRBAG: Record<AirbagStatus, string> = {
+export const AIRBAG: Record<AirbagStatus, string> = L({
   not_deployed: "не спрацювали",
   deployed: "спрацювали",
   unknown: "невідомо",
-};
+});
 
-export const FUEL: Record<LotInput["fuel"], string> = {
+export const FUEL: Record<LotInput["fuel"], string> = L({
   petrol: "бензин",
   diesel: "дизель",
   hybrid: "гібрид",
   electric: "електро",
-};
+});
 
 
 export const TONE_TEXT = { good: "text-good", warn: "text-warn", bad: "text-bad" } as const;
@@ -53,8 +54,8 @@ export function lotTitle(lot: LotInput): string {
 
 
 export function formatDate(iso: string): string {
-  return new Date(iso).toLocaleDateString("uk-UA", { day: "numeric", month: "long", year: "numeric" });
+  return new Date(iso).toLocaleDateString(localeOf(), { day: "numeric", month: "long", year: "numeric" });
 }
 
 export const stamp = (iso: string | null) =>
-  iso ? new Date(iso).toLocaleString("uk-UA", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "—";
+  iso ? new Date(iso).toLocaleString(localeOf(), { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "—";

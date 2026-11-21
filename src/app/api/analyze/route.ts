@@ -1,9 +1,9 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { isAuctionName } from "@/lib/shared/auctions";
 import { MAX_PHOTOS } from "@/lib/shared/defaults";
-import { DEMO_ANALYSIS } from "@/lib/server/demo";
+import { demoAnalysis } from "@/lib/server/demo";
 import { normalizeAnalysis } from "@/lib/server/normalize";
-import { ANALYSIS_SCHEMA, SYSTEM_PROMPT, buildLotText, lessonsBlock } from "@/lib/server/prompt";
+import { ANALYSIS_SCHEMA, buildLotText, lessonsBlock, systemPrompt } from "@/lib/server/prompt";
 import { requireUser } from "@/lib/server/auth";
 import { audit } from "@/lib/server/audit";
 import { query } from "@/lib/server/db";
@@ -133,7 +133,7 @@ async function handlePOST(request: Request) {
   };
 
   if (!process.env.ANTHROPIC_API_KEY) {
-    const response: AnalyzeResponse = { analysis: DEMO_ANALYSIS, demo: true, model: "demo" };
+    const response: AnalyzeResponse = { analysis: demoAnalysis(user.market), demo: true, model: "demo" };
     await audit(user, "analyze", `${lot.year} ${lot.make} ${lot.model}`, "демо");
     return Response.json(response);
   }
@@ -149,7 +149,7 @@ async function handlePOST(request: Request) {
   ).map((l) => l.rule.replace(/\s+/g, " ").slice(0, 600));
 
   const content: Anthropic.ContentBlockParam[] = [
-    { type: "text", text: buildLotText({ lot, images, pricing }) },
+    { type: "text", text: buildLotText({ lot, images, pricing }, user.market) },
   ];
   images.forEach((img, i) => {
     content.push({ type: "text", text: `Photo ${i + 1}:` });
@@ -195,10 +195,10 @@ async function handlePOST(request: Request) {
       max_tokens: 16000,
       system: lessons.length
         ? [
-            { type: "text", text: SYSTEM_PROMPT },
+            { type: "text", text: systemPrompt(user.market) },
             { type: "text", text: lessonsBlock(lessons) },
           ]
-        : SYSTEM_PROMPT,
+        : systemPrompt(user.market),
       messages: [{ role: "user", content }],
       output_config: {
         format: { type: "json_schema", schema: ANALYSIS_SCHEMA },

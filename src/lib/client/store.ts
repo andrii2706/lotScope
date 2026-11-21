@@ -5,6 +5,7 @@ import { DEFAULT_SETTINGS } from "../shared/defaults.ts";
 import { onUserChange } from "./me.ts";
 import { responseMessage, NETWORK_MESSAGE } from "../shared/errors.ts";
 import type { HistoryDoc, HistoryFile, Report, Settings } from "@/types/report";
+import { t } from "../shared/i18n.ts";
 
 const PREFS_KEY = "lotscope.prefs.v1";
 const LOCAL_KEYS = ["theme", "expertName"] as const;
@@ -118,7 +119,7 @@ export function getSettings(): Settings {
   return combinedSettings === DEFAULT_SETTINGS ? { ...DEFAULT_SETTINGS, ...readPrefs() } : combinedSettings;
 }
 
-export function saveSettings(settings: Settings) {
+export function saveSettings(settings: Settings): Promise<void> {
   const nextPrefs: Prefs = { theme: settings.theme, expertName: settings.expertName };
   writePrefs(nextPrefs);
   const remote = { ...settings } as Partial<Settings>;
@@ -127,14 +128,14 @@ export function saveSettings(settings: Settings) {
   if (changed) {
     state = { ...state, remote };
     notify();
-    void fetch("/api/settings", { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify(remote) })
+    return fetch("/api/settings", { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify(remote) })
       .then((r) => {
         if (!r.ok) void load();
       })
       .catch(() => void load());
-  } else {
-    notify();
   }
+  notify();
+  return Promise.resolve();
 }
 
 export class SaveReportError extends Error {}
@@ -148,7 +149,7 @@ export async function saveReport(report: Report, persist: boolean): Promise<Repo
   }
   const res = await fetch("/api/reports", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(report) }).catch(() => null);
   const data = (await res?.json().catch(() => null)) as { report?: Report; error?: string } | null;
-  if (!res || !res.ok || !data?.report) throw new SaveReportError(res ? responseMessage("/api/reports", res.status, data, "Не вдалося зберегти звіт.") : NETWORK_MESSAGE);
+  if (!res || !res.ok || !data?.report) throw new SaveReportError(res ? responseMessage("/api/reports", res.status, data, t("Не вдалося зберегти звіт.")) : NETWORK_MESSAGE);
   state = { ...state, server: [data.report, ...state.server.filter((r) => r.id !== data.report?.id)] };
   notify();
   return data.report;

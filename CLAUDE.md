@@ -6,8 +6,9 @@ This file gives full context for working on the project. Keep it in the reposito
 to `package.json`. The first line imports `AGENTS.md`, which holds the rules for this version
 of Next.js.
 
-The project owner writes in Ukrainian: reply to him in Ukrainian. All user-facing UI text is
-Ukrainian. The code has no comments: the owner asked to keep it that way, so do not add any.
+The project owner writes in Ukrainian: reply to him in Ukrainian. User-facing text is written in
+Ukrainian in the code and wrapped in `t()`; Polish companies see it through the Polish dictionary
+(see "Markets and languages"). The code has no comments: the owner asked to keep it that way, so do not add any.
 
 ## What the product is
 
@@ -32,7 +33,7 @@ workspace, the company's own rates, and a report under the company's brand.
 A working MVP. Verified:
 
 - build, lint and type check pass;
-- 70 tests pass (`npm test`): calculations, VIN checks, lot query parsing, provider mapping, lot search, VIN history, roles, password hashing, reset and invite mail, DB SSL config and history file validation;
+- 85 tests pass (`npm test`): calculations (Ukrainian and Polish), Polish dictionary coverage, Polish prompt and mail, VIN checks, lot query parsing, provider mapping, lot search, VIN history, roles, password hashing, reset and invite mail, DB SSL config and history file validation;
 - the full flow in a browser on desktop and phone: form → analysis → report → editing
   amounts → print to PDF → history → settings;
 - real AI analysis with an API key works: the first real lot (2018 BMW 330i GT xDrive,
@@ -125,7 +126,7 @@ src/app/                     routes only (page.tsx, layout.tsx, error.tsx, globa
   login/ invite/[token]/ forgot-password/ reset-password/
   api/**/route.ts            handlers exported as `export const GET = route(handleGET)`
 src/components/
-  layout/                    AppShell (session guard, theme vars), Sidebar, MobileNav, NavList (with skeleton), UserBlock, AuthLayout, Logo, Copyright
+  layout/                    AppShell (session guard, theme vars, language key), LangSwitch, Sidebar, MobileNav, NavList (with skeleton), UserBlock, AuthLayout, Logo, Copyright
   ui/                        Button, Card, Field, NumberInput, Notice, PageHeader, Segmented, Select, StepCard, StatTile, Combobox, ConfirmDialog, Lightbox, OutLink; index.ts re-exports them
   auth/                      AuthForm, GoogleButton
   analysis/                  LotFinder, PhotoUploader, HistoryUploader, VinHistoryPanel, VinDecodeButton, MarketPrice
@@ -135,8 +136,8 @@ src/components/
 src/config/                  brand (copyright owner and start year), features (FEATURES switches), navigation (NAV, auth pages, photo), analysis (form options, loading stages), settings (sections, region rows, accents), search (default filters), auth (Google error texts)
 src/types/                   report (LotInput, Analysis, Settings, Report…), auction, vin, pricing, auth (Role, Permission, CurrentUser, Me…), admin, team, system, ui
 src/lib/server/              auth, db, dbssl, dberror, schema, route, http (fail/readJson/text), scope, members, audit, superadmin, google, password, mail, provider, autoria, reports, prompt, normalize, demo
-src/lib/client/              api, me, store, rates (useRates/useCostSettings), lessons, theme, images, useVinHistory, navigation (safeNext)
-src/lib/shared/              calc, auctionFees, auctions, auction, search, lots, vin, vinDecode, vinhistory, partsPricing, rates, autoriaMatch, roles, labels, auditLabels, errors, defaults, cars, color, lessons, overrides, expertStats, time, copyright, lotText
+src/lib/client/              lang (useLang, rememberLang, bootLang), pdf, api, me, store, rates (useRates/useCostSettings), lessons, theme, images, useVinHistory, navigation (safeNext)
+src/lib/shared/              i18n (t, L, tk, withLang, formats) + i18n/pl.ts (Polish dictionary), calc, calcPl, auctionFees, auctions, auction, search, lots, vin, vinDecode, vinhistory, partsPricing, rates, autoriaMatch, roles, labels, auditLabels, errors, defaults, cars, color, lessons, overrides, expertStats, time, copyright, lotText
 src/proxy.ts                 redirects pages without a session cookie to /login
 tests/*.test.mjs             node:test suites importing src/lib/shared and src/lib/server files directly
 db/schema.sql                database schema; scripts/migrate.mjs and lib/server/schema.ts apply it
@@ -209,6 +210,18 @@ Known simplifications:
 - exchange rates come from the NBU (`lib/shared/rates.ts`, `/api/rates`, 3 h cache) when `settings.autoRates` is on; `useCostSettings()` in `lib/client/rates.ts` applies them on the client (report, history, activity); manual rates in settings are the fallback. The NBU response shape is assumed (`[{cc, rate, exchangedate}]`) and was verified only against a mock;
 - starting logistics rates in `defaults.ts` are approximate 2026 market figures for a sedan via Klaipeda, not a quote.
 
+## Markets and languages
+
+A company has a market in its settings: `Settings.market` is `"ua"` (default) or `"pl"`. It decides the interface and PDF language, the currency, the calculation and the AI prompt. The superadmin picks it when creating a company ("Ринок і мова", `PL_DEFAULTS` from `defaults.ts`: orange accent, EU freight), the company admin can switch it on top of `/settings` (the page then calls `refreshMe`). `CurrentUser.market` / `Me.market` come from `companies.settings->>'market'`.
+
+- Language: `lib/shared/i18n.ts`. The Ukrainian text is the key: `t("Звіти")`, with placeholders `t("Фото {v0}", { v0: n })`. `src/lib/shared/i18n/pl.ts` maps keys to Polish (`PL`) and has regex `PL_PATTERNS` for server messages with numbers. Module-level label objects are wrapped in `L({...})`: their string values become getters that translate on every read, so `ROLE_LABEL[r]`, `AUCTIONS[a].label`, `NAV` and the like follow the current language. Arrays of plain strings are not lazy: translate them where they are shown (`t(tip)`, `t(LOADING_STAGES[i])`, `t(tag)`). Never build label lists at module level from `L` objects (`.map` at import time freezes the language); use a function. Numbers and dates go through `fmtInt`, `fmtNum`, `fmtDate`, `localeOf()`.
+- The current language is a module global. On the client `me.ts` sets it from the user's market (`rememberLang`, also stored as `lotscope.lang` and as `data-market` on `<html>`), auth pages guess it from storage or the browser and offer `LangSwitch`, the invite page switches to the inviting company's language. `AppShell` remounts the page content (`key={lang}`) when it changes. Server code must not rely on the global: it passes the language explicitly (`withLang(lang, fn)` for synchronous helpers such as `searchLinks`, `resetEmail(..., lang)`, `inviteEmail({ lang })`, `systemPrompt(market)`, `demoAnalysis(market)`). API error messages stay Ukrainian on the server; `responseMessage`/`userMessage` translate them on the client.
+- Coverage: `scripts/i18n-keys.mjs` collects every key (`t()` literals, `L()` values, lotText tables, server messages) and `tests/i18n.test.mjs` fails when one has no Polish translation, when placeholders differ or when Cyrillic is left in a translation. Add translations with `node scripts/i18n-build.mjs file.json` (`{ "uk": "pl" }`).
+- Money: the calculation stays in USD internally. `CostResult.currency`/`rate` say how to show it: `money(usd, cost)`, `moneyRange(min, max, cost)`, `moneyOf(settings)`; bids and the maximum bid are always shown in $ (`usd`). Inputs in zloty convert with `cost.rate`.
+- Polish calculation (`lib/shared/calcPl.ts`, `calculate` dispatches to it): customs value = bid + auction fee + inland + freight to the EU port; cło 10 %, 0 % when the manager ticks "Auto wyprodukowane w USA" (`lot.usOrigin`, EU regulation 2026/1455 from 1 July 2026, needs proof of origin; the form hints from the VIN: 1/4/5 = built in the USA); akcyza on customs value + cło: 3,1 % up to 2000 cm³, 18,6 % above, full hybrids 1,55 % / 9,3 % up to 3500 cm³, electric 0 %; VAT by `plClearance`: Poland 23 % of customs value + cło + akcyza, Germany 19 % or the Netherlands 21 % of customs value + cło. EU auction lots (Copart Finland): no cło and no import VAT, akcyza on bid + fee, truck to Poland is the second logistics column. Polish costs are in zloty in settings (`plPortPln`, `plTransportPln`, `plRegistrationPln`, `plCompanyFeePln`, `plFirstServicePln`, `plLaborPln`, `plPaintPln`), the market price is `lot.marketPricePln` / `overrides.marketPricePln` (Otomoto has no public API, it is typed by hand). Rates: NBP table A (`parseNbp`, `NBP_API_URL` for tests) when `autoRates`, else `usdPln`/`eurPln`. `pricingSettings()` converts the zloty labor and paint for the AI and the parts prices. Sources for the rates were third-party Polish import guides of 2026 (celna24, autostany, usaimportauto, wcshipping, dreambid); re-check them before relying on the numbers.
+- AI: `systemPrompt("pl")` asks for Polish text, Polish body-shop prices and Polish terms; `buildLotText(req, "pl")` prices parts at allegro.pl / olx.pl. Parts search uses `SYSTEM_PL`. Demo report: `DEMO_ANALYSIS_PL`.
+- Look (mocks: Design artifact "LotScope Polska — моки UI"): same layout, light theme by default with dark on demand; `:root[data-market="pl"]` switches to Barlow (body) and Barlow Condensed uppercase for h1/h2 (`@fontsource/barlow`, `@fontsource/barlow-condensed`), smaller radii, the orange logo with a "PL" badge, and orange accent by default. The copyright shows the Latin company name (`COPYRIGHT_OWNER_LATIN`) in Polish.
+
 ## Auctions and regions (`src/lib/shared/auctions.ts`)
 
 - `AuctionName`: `Copart`, `IAAI` (US), `CopartCanada`, `CopartFinland`, `Emirates` (all five come from apiauctions.io: `get-auctions` returns `COPART`, `COPART CANADA`, `COPART FINLAND`, `IAAI`, `EMIRATES AUCTION`), and `Other`. Each has a label, short badge name, provider name, region (`us | ca | eu | ae`) and badge color. `auctionFromProvider` maps provider strings, `auctionLotUrl` builds lot links (copart.ca/lot, copart.fi/en/lot; Emirates falls back to a Google search).
@@ -250,6 +263,7 @@ If you change the schema, update `types/report.ts` (`Analysis`), `normalize.ts` 
 
 A light business SaaS interface by default (mocks: Design artifact "LotScope — нові моки UI"), a dark theme on demand, a light document on paper.
 
+- Password fields in `AuthForm` (login, invite, reset) have an eye button that toggles the field between hidden and shown (`aria-pressed`, keeps focus); Edge's own reveal button is hidden in `globals.css`.
 - Auth pages: the right half is the cars photo only (`AUTH_PHOTO` as a CSS background, so a blocked image leaves a dark panel instead of a broken-image icon), no text over it.
 - Layout: `AppShell` renders a 248px white sidebar on `lg+` and a 56px top bar with a drawer below it; content is `max-w-[1180px]`. The sidebar is always rendered on app pages: while `/api/auth/me` loads it shows a skeleton, if it fails it keeps the shell, shows a notice and retries every 5 s, and without a session it redirects to `/login`. Page content renders only once the user is known. Auth pages (`/login`, `/invite`, `/forgot-password`, `/reset-password`) use `AuthLayout` (form left, photo right, no theme toggle).
 - No native dropdowns: use `Select` (`components/ui/Select.tsx`: button with `role="combobox"`, listbox rendered in a portal with fixed position so cards with `overflow-hidden` do not clip it, flips upward near the bottom, keyboard: arrows, Home/End, Enter/Space, Escape, type-ahead) instead of `<select>`, and `Combobox` (`minChars={0}` shows the whole list on focus) instead of `<datalist>`. `.control` sets `background-color`, never the `background` shorthand.

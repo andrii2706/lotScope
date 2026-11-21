@@ -30,6 +30,8 @@ async function handlePUT(request: Request) {
   for (const [key, fallback] of Object.entries(DEFAULT_SETTINGS)) {
     if (LOCAL_ONLY.includes(key)) continue;
     const value = input[key];
+    if (key === "market" && value !== "ua" && value !== "pl") continue;
+    if (key === "plClearance" && value !== "pl" && value !== "de" && value !== "nl") continue;
     if (typeof value === typeof fallback && (typeof value !== "number" || Number.isFinite(value))) clean[key] = value;
   }
   await query("update companies set settings = $2::jsonb where id = $1", [user.companyId, JSON.stringify(clean)]);

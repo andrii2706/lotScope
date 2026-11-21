@@ -5,6 +5,7 @@ import { useRef, useState } from "react";
 import { preparePhoto } from "@/lib/client/images";
 import { userMessage } from "@/lib/shared/errors";
 import type { HistoryFile } from "@/types/report";
+import { t } from "@/lib/shared/i18n";
 
 export const MAX_HISTORY_FILES = 4;
 const MAX_PDF_BYTES = 3 * 1024 * 1024;
@@ -16,7 +17,7 @@ function readBase64(file: File): Promise<string> {
       const url = String(reader.result);
       resolve(url.slice(url.indexOf(",") + 1));
     };
-    reader.onerror = () => reject(new Error(`Не вдалося прочитати ${file.name}`));
+    reader.onerror = () => reject(new Error(t("Не вдалося прочитати {v0}", { v0: file.name })));
     reader.readAsDataURL(file);
   });
 }
@@ -38,14 +39,14 @@ export function HistoryUploader({
     if (!list || list.length === 0) return;
     const incoming = Array.from(list);
     const room = MAX_HISTORY_FILES - files.length;
-    setError(incoming.length > room ? `Можна додати не більше ${MAX_HISTORY_FILES} файлів.` : "");
+    setError(incoming.length > room ? t("Можна додати не більше {v0} файлів.", { v0: MAX_HISTORY_FILES }) : "");
     setBusy(true);
     const added: HistoryFile[] = [];
     for (const file of incoming.slice(0, Math.max(0, room))) {
       try {
         if (file.type === "application/pdf") {
           if (file.size > MAX_PDF_BYTES) {
-            setError(`${file.name}: PDF більший за 3 МБ. Збережіть звіт скриншотами сторінок.`);
+            setError(t("{v0}: PDF більший за 3 МБ. Збережіть звіт скриншотами сторінок.", { v0: file.name }));
             continue;
           }
           added.push({ name: file.name, mediaType: "application/pdf", data: await readBase64(file) });
@@ -53,10 +54,10 @@ export function HistoryUploader({
           const photo = await preparePhoto(file);
           added.push({ name: file.name, mediaType: "image/jpeg", data: photo.data });
         } else {
-          setError(`${file.name}: підтримуються PDF і зображення.`);
+          setError(t("{v0}: підтримуються PDF і зображення.", { v0: file.name }));
         }
       } catch (e) {
-        setError(userMessage(e, "Не вдалося обробити файл."));
+        setError(userMessage(e, t("Не вдалося обробити файл.")));
       }
     }
     onChange([...files, ...added]);
@@ -73,7 +74,7 @@ export function HistoryUploader({
         className="flex w-full items-center justify-center gap-2.5 rounded-xl border-2 border-dashed border-line2 bg-paper px-4 py-5 text-sm font-bold text-muted transition hover:border-accent-text/60 hover:text-ink disabled:cursor-not-allowed disabled:opacity-60"
       >
         {busy ? <LoaderCircle className="size-5 animate-spin" /> : <Upload className="size-5" />}
-        {busy ? "Обробляю…" : "Додати Carfax чи AutoCheck: PDF або скриншоти"}
+        {busy ? t("Обробляю…") : t("Додати Carfax чи AutoCheck: PDF або скриншоти")}
       </button>
       <input
         ref={inputRef}
@@ -99,7 +100,7 @@ export function HistoryUploader({
               <span className="min-w-0 flex-1 truncate text-sm font-semibold">{f.name}</span>
               <button
                 type="button"
-                aria-label={`Прибрати ${f.name}`}
+                aria-label={t("Прибрати {v0}", { v0: f.name })}
                 disabled={disabled}
                 onClick={() => onChange(files.filter((_, j) => j !== i))}
                 className="grid size-8 place-items-center rounded-lg text-muted hover:bg-panel2 hover:text-ink"

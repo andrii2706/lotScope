@@ -2,6 +2,8 @@
 
 import { useSyncExternalStore } from "react";
 import { can } from "../shared/roles.ts";
+import { langOf } from "../shared/i18n.ts";
+import { rememberLang } from "./lang.ts";
 import type { Me, MeState, Permission } from "@/types/auth";
 
 export { ROLE_LABEL } from "../shared/roles.ts";
@@ -30,6 +32,7 @@ export function refreshMe(): Promise<void> {
   inflight ??= fetch("/api/auth/me", { cache: "no-store" })
     .then((r) => r.json())
     .then((d: { user: Me | null; dbConfigured: boolean; dbError?: string }) => {
+      if (d.user) rememberLang(langOf(d.user.market));
       state = { status: "ready", user: d.user, dbConfigured: d.dbConfigured, dbError: d.dbError };
       settle(d.user);
     })

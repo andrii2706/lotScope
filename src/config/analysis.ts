@@ -1,4 +1,5 @@
 import { CircleDollarSign, FileText, Gavel, ScanSearch, Wrench } from "lucide-react";
+import { L } from "@/lib/shared/i18n";
 
 export const STORED_PHOTOS = 20;
 
@@ -23,19 +24,19 @@ export const DAMAGE_OPTIONS = [
 
 export const TITLE_OPTIONS = ["Salvage", "Clean", "Rebuilt", "Certificate of Destruction", "Parts Only"];
 
-export const LOADING_STAGES = [
+export const LOADING_STAGES = L([
   "Розглядаю фото лота…",
   "Шукаю пошкодження та ризики…",
   "Оцінюю вартість ремонту…",
   "Рахую розмитнення та ціну під ключ…",
-];
+]);
 
-export const OUTCOMES = [
+export const OUTCOMES = L([
   { icon: ScanSearch, text: "Пошкодження та ризики за фото" },
   { icon: Wrench, text: "Вилка вартості ремонту" },
   { icon: CircleDollarSign, text: "Ціна під ключ з розмитненням" },
   { icon: Gavel, text: "Максимальна ставка" },
   { icon: FileText, text: "PDF-звіт з вашим логотипом" },
-];
+]);
 
 export const MAX_REQUEST_CHARS = 4_300_000;

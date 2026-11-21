@@ -2,6 +2,7 @@ import { AUCTIONS, auctionFromProvider, auctionLotUrl } from "./auctions.ts";
 import { historyLinks } from "./historySites.ts";
 import type { LotQuery, MappedLot, PriceStats, SearchLink, AuctionName } from "@/types/auction";
 import type { FuelType, LotInput } from "@/types/report";
+import { t } from "./i18n.ts";
 
 
 const VIN_RE = /^[A-HJ-NPR-Z0-9]{17}$/;
@@ -52,20 +53,20 @@ export function searchLinks(q: LotQuery, car?: { year?: number; make?: string; m
 
   if (q.kind === "lot") {
     if (q.auction !== "Other" && q.auction !== "Copart" && q.auction !== "IAAI") {
-      links.push({ label: `${AUCTIONS[q.auction].label}: сторінка лота`, href: auctionLotUrl(q.auction, q.value), group: "auction" });
+      links.push({ label: t("{v0}: сторінка лота", { v0: AUCTIONS[q.auction].label }), href: auctionLotUrl(q.auction, q.value), group: "auction" });
     } else {
-      if (q.auction !== "IAAI") links.push({ label: "Copart: сторінка лота", href: `https://www.copart.com/lot/${enc}`, group: "auction" });
-      if (q.auction !== "Copart") links.push({ label: "IAAI: пошук лота", href: `https://www.iaai.com/Search?Keyword=${enc}`, group: "auction" });
+      if (q.auction !== "IAAI") links.push({ label: t("Copart: сторінка лота"), href: `https://www.copart.com/lot/${enc}`, group: "auction" });
+      if (q.auction !== "Copart") links.push({ label: t("IAAI: пошук лота"), href: `https://www.iaai.com/Search?Keyword=${enc}`, group: "auction" });
     }
   } else {
-    links.push({ label: "Copart: пошук за VIN", href: `https://www.copart.com/lotSearchResults?free=true&query=${enc}`, group: "auction" });
-    links.push({ label: "IAAI: пошук за VIN", href: `https://www.iaai.com/Search?Keyword=${enc}`, group: "auction" });
+    links.push({ label: t("Copart: пошук за VIN"), href: `https://www.copart.com/lotSearchResults?free=true&query=${enc}`, group: "auction" });
+    links.push({ label: t("IAAI: пошук за VIN"), href: `https://www.iaai.com/Search?Keyword=${enc}`, group: "auction" });
     for (const l of historyLinks(q.value)) links.push({ ...l, group: "history" });
   }
 
   const carText = [car?.year || "", car?.make, car?.model].filter(Boolean).join(" ");
   const google = q.kind === "vin" ? `"${q.value}"` : `${q.auction === "Other" ? "" : AUCTIONS[q.auction].short + " "}lot ${q.value} ${carText}`.trim();
-  links.push({ label: "Google: історія продажів", href: `https://www.google.com/search?q=${encodeURIComponent(google)}`, group: "web" });
+  links.push({ label: t("Google: історія продажів"), href: `https://www.google.com/search?q=${encodeURIComponent(google)}`, group: "web" });
   return links;
 }
 

@@ -6,13 +6,14 @@ import { CarFront, Plus, Search, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { AUCTIONS } from "@/lib/shared/auctions";
-import { calculate, usd } from "@/lib/shared/calc";
+import { calculate, moneyRange } from "@/lib/shared/calc";
 import { TONE_BG, TONE_TEXT, VERDICT, lotTitle } from "@/lib/shared/labels";
 import { useCan, useMe } from "@/lib/client/me";
 import { deleteReport, useHydrated, useReports } from "@/lib/client/store";
 import type { Report } from "@/types/report";
 import { DAY, startOfDay } from "@/lib/shared/time";
 import { StatTile } from "@/components/ui/StatTile";
+import { t, localeOf } from "@/lib/shared/i18n";
 
 export default function HistoryPage() {
   const hydrated = useHydrated();
@@ -57,7 +58,7 @@ export default function HistoryPage() {
     const authors = new Map<string, number>();
     for (const r of real) {
       if (at(r.report) < monthStart) continue;
-      const name = r.report.authorName || "Без автора";
+      const name = r.report.authorName || t("Без автора");
       authors.set(name, (authors.get(name) ?? 0) + 1);
     }
     return {
@@ -67,7 +68,7 @@ export default function HistoryPage() {
       awaiting,
       days,
       authors: [...authors.entries()].sort((a, b) => b[1] - a[1]).slice(0, 6),
-      monthName: now.toLocaleDateString("uk-UA", { month: "long" }),
+      monthName: now.toLocaleDateString(localeOf(), { month: "long" }),
     };
   }, [rows]);
 
@@ -82,8 +83,8 @@ export default function HistoryPage() {
   return (
     <div>
       <PageHeader
-        title="Звіти"
-        description={lead ? `Ваші звіти та звіти менеджерів команди · ${stats.monthName}` : canSeeAll ? `Звіти всієї компанії · ${stats.monthName}` : "Ваші звіти та результати за місяць."}
+        title={t("Звіти")}
+        description={lead ? t("Ваші звіти та звіти менеджерів команди · {v0}", { v0: stats.monthName }) : canSeeAll ? t("Звіти всієї компанії · {v0}", { v0: stats.monthName }) : t("Ваші звіти та результати за місяць.")}
         action={
           <div className="flex flex-wrap gap-2">
             {canSearch && (
@@ -91,7 +92,7 @@ export default function HistoryPage() {
                 href="/search"
                 className="inline-flex min-h-10 items-center gap-2 rounded-[10px] border border-line2 bg-surface px-4 text-sm font-semibold transition hover:bg-panel2"
               >
-                <Search className="size-4" /> Пошук лотів
+                <Search className="size-4" /> {t("Пошук лотів")}
               </Link>
             )}
             {canAnalyze && (
@@ -99,7 +100,7 @@ export default function HistoryPage() {
                 href="/"
                 className="inline-flex min-h-10 items-center gap-2 rounded-[10px] bg-accent px-4 text-sm font-semibold text-accent-ink transition hover:brightness-110"
               >
-                <Plus className="size-4" strokeWidth={2.4} /> Новий аналіз
+                <Plus className="size-4" strokeWidth={2.4} /> {t("Новий аналіз")}
               </Link>
             )}
           </div>
@@ -107,56 +108,56 @@ export default function HistoryPage() {
       />
 
       {!hydrated ? (
-        <p className="text-sm text-muted">Завантажую…</p>
+        <p className="text-sm text-muted">{t("Завантажую…")}</p>
       ) : reports.length === 0 ? (
         <div className="card mx-auto max-w-lg px-6 py-14 text-center">
           <span className="mx-auto mb-5 grid size-12 place-items-center rounded-xl bg-panel2 text-muted">
             <CarFront className="size-6" strokeWidth={1.8} />
           </span>
-          <p className="text-lg font-semibold tracking-tight">Звітів ще немає</p>
+          <p className="text-lg font-semibold tracking-tight">{t("Звітів ще немає")}</p>
           <p className="mx-auto mt-2 max-w-xs text-sm text-muted">
-            {canAnalyze ? "Проаналізуйте перший лот, і він з'явиться тут разом з ціною під ключ." : "Звіти з'являться тут, коли менеджери почнуть працювати."}
+            {canAnalyze ? t("Проаналізуйте перший лот, і він з'явиться тут разом з ціною під ключ.") : t("Звіти з'являться тут, коли менеджери почнуть працювати.")}
           </p>
           {canAnalyze && (
             <Link
               href="/"
               className="mt-6 inline-flex min-h-10 items-center gap-2 rounded-[10px] bg-accent px-5 text-sm font-semibold text-accent-ink transition hover:brightness-110"
             >
-              Проаналізувати лот
+              {t("Проаналізувати лот")}
             </Link>
           )}
         </div>
       ) : (
         <>
           <section className="mb-5 grid grid-cols-1 gap-4 sm:grid-cols-3">
-            <StatTile label="Аналізів цього місяця" value={String(stats.month)}>
+            <StatTile label={t("Аналізів цього місяця")} value={String(stats.month)}>
               {stats.prev > 0 || stats.month > 0 ? (
                 <span className={diff >= 0 ? "text-good" : "text-muted"}>
-                  {diff >= 0 ? "↑" : "↓"} {Math.abs(diff)} до минулого місяця
+                  {diff >= 0 ? "↑" : "↓"} {Math.abs(diff)} {t("до минулого місяця")}
                 </span>
               ) : (
-                "поки без аналізів"
+                t("поки без аналізів")
               )}
             </StatTile>
-            <StatTile label="Середня вигода клієнту" value={stats.avgSavings === null ? "—" : `${Math.round(stats.avgSavings)} %`}>
-              від ціни на ринку України
+            <StatTile label={t("Середня вигода клієнту")} value={stats.avgSavings === null ? "—" : `${Math.round(stats.avgSavings)} %`}>
+              {t("від ціни на ринку України")}
             </StatTile>
-            <StatTile label="Без перевірки експерта СТО" value={String(stats.awaiting)}>
-              {stats.awaiting > 0 ? "звіти без оцінки СТО" : "усі звіти перевірено"}
+            <StatTile label={t("Без перевірки експерта СТО")} value={String(stats.awaiting)}>
+              {stats.awaiting > 0 ? t("звіти без оцінки СТО") : t("усі звіти перевірено")}
             </StatTile>
           </section>
 
           <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_320px]">
             <section className="card min-w-0 overflow-hidden">
               <header className="flex flex-wrap items-center justify-between gap-3 border-b border-line px-5 py-4">
-                <h2 className="text-base font-semibold">Останні звіти</h2>
+                <h2 className="text-base font-semibold">{t("Останні звіти")}</h2>
                 <label className="relative w-full sm:w-64">
-                  <span className="sr-only">Пошук звітів</span>
+                  <span className="sr-only">{t("Пошук звітів")}</span>
                   <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-faint" />
                   <input
                     type="search"
                     className="control !min-h-9 !pl-9 !text-sm"
-                    placeholder="Марка, лот, VIN або автор"
+                    placeholder={t("Марка, лот, VIN або автор")}
                     value={query}
                     onChange={(e) => setQuery(e.target.value)}
                   />
@@ -164,9 +165,9 @@ export default function HistoryPage() {
               </header>
               {visible.length === 0 ? (
                 <p className="px-5 py-6 text-sm text-muted">
-                  Нічого не знайдено за запитом «{query}».{" "}
+                  {t("Нічого не знайдено за запитом «")}{query}».{" "}
                   <button type="button" className="font-semibold text-accent-text hover:underline" onClick={() => setQuery("")}>
-                    Скинути пошук
+                    {t("Скинути пошук")}
                   </button>
                 </p>
               ) : (
@@ -174,13 +175,13 @@ export default function HistoryPage() {
                   <table className="w-full min-w-[680px] text-sm">
                     <thead>
                       <tr className="border-b border-line text-left text-xs font-medium text-muted">
-                        <th className="px-5 py-2.5 font-medium">Авто</th>
-                        <th className="px-3 py-2.5 font-medium">Висновок</th>
-                        <th className="px-3 py-2.5 text-right font-medium">Під ключ</th>
-                        <th className="px-3 py-2.5 text-right font-medium">Вигода</th>
-                        {canSeeAll && <th className="px-3 py-2.5 font-medium">Автор</th>}
+                        <th className="px-5 py-2.5 font-medium">{t("Авто")}</th>
+                        <th className="px-3 py-2.5 font-medium">{t("Висновок")}</th>
+                        <th className="px-3 py-2.5 text-right font-medium">{t("Під ключ")}</th>
+                        <th className="px-3 py-2.5 text-right font-medium">{t("Вигода")}</th>
+                        {canSeeAll && <th className="px-3 py-2.5 font-medium">{t("Автор")}</th>}
                         <th className="w-12 px-3 py-2.5">
-                          <span className="sr-only">Дії</span>
+                          <span className="sr-only">{t("Дії")}</span>
                         </th>
                       </tr>
                     </thead>
@@ -203,7 +204,7 @@ export default function HistoryPage() {
                                 <span className="min-w-0">
                                   <span className="block truncate font-semibold group-hover:underline">{lotTitle(report.lot)}</span>
                                   <span className="block truncate text-xs text-muted">
-                                    {[auction?.short, new Date(report.createdAt).toLocaleDateString("uk-UA"), report.demo ? "демо" : "", report.saved === false ? "не збережено" : ""]
+                                    {[auction?.short, new Date(report.createdAt).toLocaleDateString(localeOf()), report.demo ? t("демо") : "", report.saved === false ? t("не збережено") : ""]
                                       .filter(Boolean)
                                       .join(" · ")}
                                   </span>
@@ -216,7 +217,7 @@ export default function HistoryPage() {
                               </span>
                             </td>
                             <td className="whitespace-nowrap px-3 py-3 text-right font-semibold tabular-nums">
-                              {Math.round(cost.totalMinUsd).toLocaleString("uk-UA")} – {usd(cost.totalMaxUsd)}
+                              {moneyRange(cost.totalMinUsd, cost.totalMaxUsd, cost)}
                             </td>
                             <td className={`whitespace-nowrap px-3 py-3 text-right tabular-nums ${hasMarket ? (cost.savingsUsd >= 0 ? "text-good" : "text-bad") : "text-faint"}`}>
                               {hasMarket ? `${cost.savingsUsd >= 0 ? "" : "−"}${Math.abs(Math.round(cost.savingsPct))} %` : "—"}
@@ -226,10 +227,10 @@ export default function HistoryPage() {
                               {(report.saved === false || report.authorId === myId) && (
                                 <button
                                   type="button"
-                                  aria-label={`Видалити звіт ${lotTitle(report.lot)}`}
-                                  title="Видалити звіт"
+                                  aria-label={t("Видалити звіт {v0}", { v0: lotTitle(report.lot) })}
+                                  title={t("Видалити звіт")}
                                   onClick={async () => {
-                                    if (await confirmDialog({ title: "Видалити звіт?", message: `${lotTitle(report.lot)}: звіт буде видалено назавжди.`, confirmLabel: "Видалити звіт", tone: "danger" })) {
+                                    if (await confirmDialog({ title: t("Видалити звіт?"), message: t("{v0}: звіт буде видалено назавжди.", { v0: lotTitle(report.lot) }), confirmLabel: t("Видалити звіт"), tone: "danger" })) {
                                       deleteReport(report.id);
                                     }
                                   }}
@@ -250,11 +251,11 @@ export default function HistoryPage() {
 
             <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-1">
               <section className="card p-5">
-                <h2 className="text-base font-semibold">Аналізи за 14 днів</h2>
-                <p className="mt-0.5 text-xs text-muted">Усього {stats.days.reduce((s, d) => s + d.count, 0)}</p>
-                <div className="mt-4 flex h-28 items-end gap-1" role="img" aria-label="Кількість аналізів за останні 14 днів">
+                <h2 className="text-base font-semibold">{t("Аналізи за 14 днів")}</h2>
+                <p className="mt-0.5 text-xs text-muted">{t("Усього")} {stats.days.reduce((s, d) => s + d.count, 0)}</p>
+                <div className="mt-4 flex h-28 items-end gap-1" role="img" aria-label={t("Кількість аналізів за останні 14 днів")}>
                   {stats.days.map((d) => (
-                    <div key={d.from} className="group relative flex h-full flex-1 items-end" title={`${new Date(d.from).toLocaleDateString("uk-UA", { day: "numeric", month: "short" })}: ${d.count}`}>
+                    <div key={d.from} className="group relative flex h-full flex-1 items-end" title={`${new Date(d.from).toLocaleDateString(localeOf(), { day: "numeric", month: "short" })}: ${d.count}`}>
                       <span
                         className={`w-full rounded-t-[3px] ${d.count ? "bg-accent" : "bg-line"}`}
                         style={{ height: d.count ? `${Math.max(8, (d.count / peak) * 100)}%` : "3px" }}
@@ -263,15 +264,15 @@ export default function HistoryPage() {
                   ))}
                 </div>
                 <div className="mt-2 flex justify-between text-[11px] text-faint">
-                  <span>{new Date(stats.days[0].from).toLocaleDateString("uk-UA", { day: "numeric", month: "short" })}</span>
-                  <span>сьогодні</span>
+                  <span>{new Date(stats.days[0].from).toLocaleDateString(localeOf(), { day: "numeric", month: "short" })}</span>
+                  <span>{t("сьогодні")}</span>
                 </div>
               </section>
 
               {canSeeAll && stats.authors.length > 0 && (
                 <section className="card p-5">
-                  <h2 className="text-base font-semibold">Команда</h2>
-                  <p className="mt-0.5 text-xs text-muted">аналізів цього місяця</p>
+                  <h2 className="text-base font-semibold">{t("Команда")}</h2>
+                  <p className="mt-0.5 text-xs text-muted">{t("аналізів цього місяця")}</p>
                   <ul className="mt-3 space-y-2.5">
                     {stats.authors.map(([name, count]) => (
                       <li key={name} className="flex items-center gap-3">

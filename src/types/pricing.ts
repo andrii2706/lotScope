@@ -6,6 +6,7 @@ export interface CostLine {
   usd: number;
   hint?: string;
   editable?: keyof CostOverrides;
+  inputUsd?: boolean;
 }
 
 export interface CostGroup {
@@ -15,6 +16,8 @@ export interface CostGroup {
 }
 
 export interface CostResult {
+  currency: "USD" | "PLN";
+  rate: number;
   groups: CostGroup[];
   customsValueUsd: number;
   ageCoefficient: number;
@@ -38,6 +41,9 @@ export interface Rates {
   plnUah: number;
   date: string;
   source: string;
+  usdPln?: number;
+  eurPln?: number;
+  plDate?: string;
 }
 
 export type PartSource = "Allegro" | "OLX";

@@ -104,3 +104,48 @@ export const DEMO_ANALYSIS: Analysis = {
   historyFindings: [],
   historyMileage: "unknown",
 };
+
+export const DEMO_ANALYSIS_PL: Analysis = {
+  ...DEMO_ANALYSIS,
+  summary:
+    "Przykładowy raport. Uderzenie boczne w dolną część tylnych drzwi: drzwi są zgniecione i rozerwane, trzeba je wymienić. Wnętrze czyste, kurtyna powietrzna nie wystrzeliła. Główne otwarte pytanie to stan progu i podstawy słupka B za drzwiami — na zdjęciach ich nie widać.",
+  impactZone: "tylne drzwi, dolna przednia część",
+  structuralRiskNote:
+    "Uderzenie było nisko, na wysokości progu i podstawy słupka B. Poszycie drzwi nie wgniotło się do środka, więc poważna deformacja jest mało prawdopodobna, ale zdjęcia tego nie potwierdzają.",
+  airbagNote: "Kurtyna nad drzwiami nie wisi, podsufitka równa, pasy nie są zablokowane.",
+  damagedParts: [
+    { ...DEMO_ANALYSIS.damagedParts[0], part: "Tylne drzwi", note: "Blacha rozerwana, prostowanie się nie opłaca. Używane drzwi z lakierowaniem w kolor." },
+    { ...DEMO_ANALYSIS.damagedParts[1], part: "Nakładka progu", note: "Wygląda na zahaczoną w strefie uderzenia." },
+    { ...DEMO_ANALYSIS.damagedParts[2], part: "Próg", note: "Niewidoczny na zdjęciach. Jeśli jest zgnieciony — wyciąganie i lakierowanie." },
+    { ...DEMO_ANALYSIS.damagedParts[3], part: "Błotnik tylny przy nadkolu", note: "Odblaski mogą ukrywać drobne wgniecenie." },
+  ],
+  scenarios: [
+    { ...DEMO_ANALYSIS.scenarios[0], name: "Uszkodzone tylko drzwi", description: "Próg i słupek całe. Wymiana drzwi, nakładki progu, lakierowanie." },
+    { ...DEMO_ANALYSIS.scenarios[1], name: "Zgnieciony próg", description: "Do wymiany drzwi dochodzi wyciąganie i lakierowanie progu." },
+    { ...DEMO_ANALYSIS.scenarios[2], name: "Zahaczona podstawa słupka", description: "Potrzebna rama naprawcza i przywrócenie geometrii otworu." },
+  ],
+  redFlags: ["Miejsce uderzenia pokrywa się z progiem i podstawą słupka B, a tych nie widać na zdjęciach."],
+  positives: [
+    "Poduszki i kurtyna powietrzna nie wystrzeliły.",
+    "Szczelina między przednimi a tylnymi drzwiami jest równa.",
+    "Tylne koło stoi prosto, szyby całe.",
+    "Silnik się uruchamia.",
+  ],
+  missingViews: [
+    "Zdjęcie z otwartymi uszkodzonymi drzwiami: próg i dół słupka.",
+    "Podwozie od strony uderzenia.",
+    "Tylne koło i wahacze z bliska.",
+  ],
+  inspectionChecklist: [
+    "Zamówić oględziny lotu ze zdjęciami progu i słupka.",
+    "Sprawdzić historię VIN: czy to jedyna szkoda i czy przebieg rósł równo.",
+    "Upewnić się, że w opisie nie ma Undercarriage ani Water/Flood.",
+    "Sprawdzić typ dokumentu: Salvage da się zarejestrować, Certificate of Destruction — nie.",
+  ],
+  photoNotes: [
+    { photo: 1, observation: "Głębokie uderzenie w dolną część drzwi, blacha rozerwana, załamanie sięga klamki." },
+    { photo: 2, observation: "Wnętrze czyste, boczek drzwi na miejscu, kurtyna nie wystrzeliła." },
+  ],
+};
+
+export const demoAnalysis = (market: "ua" | "pl"): Analysis => (market === "pl" ? DEMO_ANALYSIS_PL : DEMO_ANALYSIS);

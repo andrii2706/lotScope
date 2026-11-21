@@ -6,6 +6,7 @@ import { requireUser } from "@/lib/server/auth";
 import { fail } from "@/lib/server/http";
 import { route } from "@/lib/server/route";
 import type { SearchFilters, SearchResponse } from "@/types/auction";
+import { langOf, withLang } from "@/lib/shared/i18n";
 
 export const maxDuration = 60;
 
@@ -54,7 +55,7 @@ async function handlePOST(request: Request) {
     lots: [],
     total: 0,
     comparables: null,
-    links: auctionSearchLinks(filters),
+    links: withLang(langOf(user.market), () => auctionSearchLinks(filters)),
   };
   if (!base.configured) return Response.json(base);
 

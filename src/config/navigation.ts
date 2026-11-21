@@ -1,11 +1,12 @@
 import { Activity, FileText, Plus, Search, Settings2, ShieldCheck, Users, Wrench } from "lucide-react";
 import type { NavItem } from "@/types/ui";
+import { L } from "@/lib/shared/i18n";
 
 export const BARE_PATHS = ["/login", "/invite", "/forgot-password", "/reset-password"];
 
 export const AUTH_PHOTO = "https://images.unsplash.com/photo-1734946026733-0c31b42d970f?fm=jpg&q=70&w=1800&auto=format&fit=crop";
 
-export const NAV: NavItem[] = [
+export const NAV: NavItem[] = L([
   { href: "/admin", label: "Консоль", icon: ShieldCheck, permission: "console" },
   { href: "/activity", label: "Активність", icon: Activity, permission: "activity" },
   { href: "/", label: "Новий аналіз", icon: Plus, permission: "analyze" },
@@ -14,7 +15,7 @@ export const NAV: NavItem[] = [
   { href: "/expert", label: "Експерт СТО", icon: Wrench, permission: "expert" },
   { href: "/team", label: "Команда", icon: Users, permission: "team" },
   { href: "/settings", label: "Налаштування", icon: Settings2, permission: "settings" },
-];
+]);
 
 export function isBarePath(pathname: string): boolean {
   return BARE_PATHS.some((p) => pathname === p || pathname.startsWith(`${p}/`));

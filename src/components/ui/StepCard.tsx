@@ -2,6 +2,7 @@
 
 import { Check } from "lucide-react";
 import type { ReactNode } from "react";
+import { t } from "@/lib/shared/i18n";
 
 export function StepCard({
   step,
@@ -20,7 +21,7 @@ export function StepCard({
   children: ReactNode;
   id?: string;
 }) {
-  const badgeText = { required: "Обов'язково", recommended: "Рекомендовано", optional: "За бажанням" };
+  const badgeText = { required: t("Обов'язково"), recommended: t("Рекомендовано"), optional: t("За бажанням") };
   return (
     <section id={id} className="card rise p-5 sm:p-6">
       <header className="mb-5 flex items-start gap-3.5">
@@ -46,7 +47,7 @@ export function StepCard({
                   : "bg-panel2 text-muted"
             }`}
           >
-            {done ? "Готово" : badgeText[badge]}
+            {done ? t("Готово") : badgeText[badge]}
           </span>
         )}
       </header>

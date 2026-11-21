@@ -10,6 +10,7 @@ import { removeLesson, saveLesson, setLessonActive, useLessons } from "@/lib/cli
 import { useHydrated, useReports, useSettings } from "@/lib/client/store";
 import { userMessage } from "@/lib/shared/errors";
 import { expertStats, pct } from "@/lib/shared/expertStats";
+import { t, localeOf } from "@/lib/shared/i18n";
 
 export default function ExpertPage() {
   const hydrated = useHydrated();
@@ -22,7 +23,7 @@ export default function ExpertPage() {
   const [newTag, setNewTag] = useState(LESSON_TAGS[0]);
   const [error, setError] = useState("");
 
-  if (!hydrated) return <p className="text-sm text-muted">Завантажую…</p>;
+  if (!hydrated) return <p className="text-sm text-muted">{t("Завантажую…")}</p>;
 
   const s = expertStats(reports);
   const active = lessons.filter((l) => l.active).length;
@@ -39,7 +40,7 @@ export default function ExpertPage() {
       setRule("");
       setAdding(false);
     } catch (e) {
-      setError(userMessage(e, "Не вдалося зберегти урок."));
+      setError(userMessage(e, t("Не вдалося зберегти урок.")));
     }
   }
 
@@ -70,10 +71,10 @@ export default function ExpertPage() {
   }
 
   const tiles = [
-    { label: "Перевірено звітів", value: String(s.reviewed) },
-    { label: "Згода по деталях", value: pct(s.agreement) },
-    { label: "Ремонт ШІ vs експерт", value: pct(s.deviation, true) },
-    { label: "Висновок збігся", value: pct(s.verdictMatch) },
+    { label: t("Перевірено звітів"), value: String(s.reviewed) },
+    { label: t("Згода по деталях"), value: pct(s.agreement) },
+    { label: t("Ремонт ШІ vs експерт"), value: pct(s.deviation, true) },
+    { label: t("Висновок збігся"), value: pct(s.verdictMatch) },
   ];
 
   return (
@@ -81,18 +82,18 @@ export default function ExpertPage() {
       <PageHeader
         eyebrow={
           <>
-            <GraduationCap className="size-3.5" /> Навчання моделі
+            <GraduationCap className="size-3.5" /> {t("Навчання моделі")}
           </>
         }
-        title="Уроки експерта СТО"
-        description="Кожна перевірка звіту може стати правилом. Активні уроки додаються до інструкції моделі в кожному новому аналізі, тож вона не повторює ту саму помилку."
+        title={t("Уроки експерта СТО")}
+        description={t("Кожна перевірка звіту може стати правилом. Активні уроки додаються до інструкції моделі в кожному новому аналізі, тож вона не повторює ту саму помилку.")}
         action={
           <div className="flex flex-wrap gap-2">
             <Button variant="secondary" onClick={exportJson} disabled={lessons.length === 0 && s.reviewed === 0}>
-              <Download className="size-4" /> Експорт JSON
+              <Download className="size-4" /> {t("Експорт JSON")}
             </Button>
             <Button onClick={() => setAdding(true)}>
-              <Plus className="size-4" /> Додати урок
+              <Plus className="size-4" /> {t("Додати урок")}
             </Button>
           </div>
         }
@@ -107,27 +108,26 @@ export default function ExpertPage() {
         ))}
       </section>
       <p className="mt-2 text-xs text-faint">
-        «Ремонт ШІ vs експерт»: на скільки середина вилки ШІ відрізняється від вилки експерта. Плюс означає, що ШІ завищує.
-        Активних уроків: {active}; у кожен аналіз іде до {MAX_PROMPT_LESSONS} найсвіжіших.
+        {t("«Ремонт ШІ vs експерт»: на скільки середина вилки ШІ відрізняється від вилки експерта. Плюс означає, що ШІ завищує. Активних уроків:")} {active}{t("; у кожен аналіз іде до")} {MAX_PROMPT_LESSONS} {t("найсвіжіших.")}
       </p>
 
       {error && <p className="mt-4 rounded-xl bg-bad-bg px-4 py-3 text-sm font-semibold text-bad">{error}</p>}
 
       {adding && (
         <section className="card mt-5 p-5 sm:p-6">
-          <Field label="Новий урок" hint="Одне загальне правило з причиною. Модель застосує його, коли ситуація збігається.">
+          <Field label={t("Новий урок")} hint={t("Одне загальне правило з причиною. Модель застосує його, коли ситуація збігається.")}>
             <textarea className="control min-h-24" value={rule} onChange={(e) => setRule(e.target.value)} />
           </Field>
           <div className="mt-3 flex flex-wrap items-center gap-3">
             <label className="flex items-center gap-2 text-sm font-bold">
-              <span className="text-muted">Тема</span>
-              <Select size="sm" className="w-52" value={newTag} onChange={setNewTag} options={LESSON_TAGS.map((t) => ({ value: t, label: t }))} />
+              <span className="text-muted">{t("Тема")}</span>
+              <Select size="sm" className="w-52" value={newTag} onChange={setNewTag} options={LESSON_TAGS.map((name) => ({ value: name, label: t(name) }))} />
             </label>
             <Button variant="ghost" className="ml-auto" onClick={() => setAdding(false)}>
-              Скасувати
+              {t("Скасувати")}
             </Button>
             <Button disabled={!rule.trim()} onClick={addLesson}>
-              Зберегти урок
+              {t("Зберегти урок")}
             </Button>
           </div>
         </section>
@@ -135,15 +135,15 @@ export default function ExpertPage() {
 
       <section className="card mt-5 overflow-hidden">
         <div className="flex flex-wrap gap-1.5 border-b border-line p-4">
-          {["Усі", ...LESSON_TAGS].map((t) => (
+          {["Усі", ...LESSON_TAGS].map((name) => (
             <button
-              key={t}
+              key={name}
               type="button"
-              aria-pressed={tag === t}
-              onClick={() => setTag(t)}
-              className={`rounded-full px-3 py-1.5 text-[13px] font-bold ${tag === t ? "bg-panel2 text-ink ring-1 ring-line2" : "text-muted hover:text-ink"}`}
+              aria-pressed={tag === name}
+              onClick={() => setTag(name)}
+              className={`rounded-full px-3 py-1.5 text-[13px] font-bold ${tag === name ? "bg-panel2 text-ink ring-1 ring-line2" : "text-muted hover:text-ink"}`}
             >
-              {t}
+              {t(name)}
             </button>
           ))}
         </div>
@@ -152,9 +152,9 @@ export default function ExpertPage() {
             <span className="mx-auto mb-3 grid size-12 place-items-center rounded-xl bg-panel2 text-muted">
               <Wrench className="size-6" />
             </span>
-            <p className="font-bold">Уроків ще немає</p>
+            <p className="font-bold">{t("Уроків ще немає")}</p>
             <p className="mx-auto mt-1 max-w-md text-sm text-muted">
-              Відкрийте звіт, натисніть «Перевірити звіт» під фото і заповніть поле «Урок для моделі». Або додайте урок вручну.
+              {t("Відкрийте звіт, натисніть «Перевірити звіт» під фото і заповніть поле «Урок для моделі». Або додайте урок вручну.")}
             </p>
           </div>
         ) : (
@@ -164,17 +164,17 @@ export default function ExpertPage() {
                 <div className="min-w-0">
                   <p className={`leading-relaxed ${l.active ? "font-semibold" : "text-muted line-through decoration-1"}`}>{l.rule}</p>
                   <p className="mt-1.5 flex flex-wrap gap-1.5 text-xs">
-                    <span className="rounded-full bg-panel2 px-2.5 py-0.5 font-bold">{l.tag}</span>
+                    <span className="rounded-full bg-panel2 px-2.5 py-0.5 font-bold">{t(l.tag)}</span>
                     {l.reportId && (
                       <Link href={`/report/${l.reportId}`} className="px-1 py-0.5 font-bold text-accent-text hover:underline">
-                        зі звіту {l.reportTitle}
+                        {t("зі звіту")} {l.reportTitle}
                       </Link>
                     )}
                   </p>
                 </div>
                 <p className="text-sm text-muted">
                   <span className="block font-bold text-ink">{l.expert}</span>
-                  {new Date(l.createdAt).toLocaleDateString("uk-UA")}
+                  {new Date(l.createdAt).toLocaleDateString(localeOf())}
                 </p>
                 <div className="flex items-center gap-1.5">
                   <button
@@ -185,11 +185,11 @@ export default function ExpertPage() {
                       l.active ? "border-good bg-good-bg text-good" : "border-line2 text-muted"
                     }`}
                   >
-                    {l.active ? "Активний" : "Вимкнено"}
+                    {l.active ? t("Активний") : t("Вимкнено")}
                   </button>
                   <button
                     type="button"
-                    aria-label="Видалити урок"
+                    aria-label={t("Видалити урок")}
                     onClick={() => removeLesson({ id: l.id }).catch((e: unknown) => setError(userMessage(e)))}
                     className="grid size-9 place-items-center rounded-full text-muted hover:bg-bad-bg hover:text-bad"
                   >
@@ -204,16 +204,16 @@ export default function ExpertPage() {
 
       {s.pending.length > 0 && (
         <section className="mt-5">
-          <h2 className="mb-3 text-base font-semibold">Звіти без перевірки</h2>
+          <h2 className="mb-3 text-base font-semibold">{t("Звіти без перевірки")}</h2>
           <ul className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
             {s.pending.slice(0, 9).map((r) => (
               <li key={r.id}>
                 <Link href={`/report/${r.id}#expert`} className="card flex items-center justify-between gap-3 p-4 transition hover:border-line2">
                   <span className="min-w-0">
                     <span className="block truncate font-bold">{lotTitle(r.lot)}</span>
-                    <span className="text-xs text-muted">{new Date(r.createdAt).toLocaleDateString("uk-UA")}</span>
+                    <span className="text-xs text-muted">{new Date(r.createdAt).toLocaleDateString(localeOf())}</span>
                   </span>
-                  <span className="shrink-0 text-sm font-bold text-accent-text">Перевірити →</span>
+                  <span className="shrink-0 text-sm font-bold text-accent-text">{t("Перевірити →")}</span>
                 </Link>
               </li>
             ))}

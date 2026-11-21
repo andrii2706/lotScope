@@ -91,6 +91,14 @@ const STALE = [
   "src/lib/vinDecode.ts",
   "src/lib/vinhistory.ts",
   "tests/billing.test.mjs",
+  "src/app/api/analyze/upload/route.ts",
+  "src/app/api/reports/[id]/pdf/route.ts",
+  "src/lib/client/uploads.ts",
+  "src/lib/server/pdf.ts",
+  "src/lib/server/photos.ts",
+  "src/lib/server/uploads.ts",
+  "tests/photos.test.mjs",
+  "tests/uploads.test.mjs",
 ];
 
 const removed = [];
@@ -101,7 +109,7 @@ for (const rel of STALE) {
   removed.push(rel);
 }
 
-const dirs = ["src/app/api/billing", "src/app/billing", "src/app/register", "src/app/api/auth/register"];
+const dirs = ["src/app/api/billing", "src/app/billing", "src/app/register", "src/app/api/auth/register", "src/app/api/analyze/upload", "src/app/api/reports/[id]/pdf"];
 for (const rel of dirs) {
   const dir = path.join(root, rel);
   if (fs.existsSync(dir) && !dryRun) fs.rmSync(dir, { recursive: true, force: true });

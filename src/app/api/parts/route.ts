@@ -19,7 +19,7 @@ const PREFERENCE: Record<string, string> = {
   oem: "new original OEM parts (Polish: nowe, oryginał; Ukrainian: нові, оригінал)",
 };
 
-const SYSTEM = `You help a Ukrainian car-import company price replacement body parts for a car bought at a US auction.
+const SYSTEM_UA = `You help a Ukrainian car-import company price replacement body parts for a car bought at a US auction.
 For every part in the list, use the web_search tool to find current listings on allegro.pl (search in Polish, e.g. "zderzak przedni BMW 3 GT F34 używany") and on olx.ua (search in Ukrainian or Russian). Use the exact generation or chassis code when you know it, and remember that US-market parts sometimes differ from European ones (lights, bumpers with sensors).
 Report only listings you actually saw in the search results: copy the listing URL exactly as it appears in the results and the price exactly as shown, with its currency (PLN for allegro.pl and olx.pl, UAH for olx.ua). Never invent a listing, a URL or a price. If you found nothing reliable for a part, return an empty offers list for it and say so in note.
 Up to 4 offers per part, preferring the listings that match the requested part type and condition.
@@ -27,6 +27,10 @@ For each part also estimate body-shop labor hours to fit it (laborHoursMin, labo
 Write title and note in Ukrainian.
 Your final message must be only a JSON object, no prose before or after:
 {"parts":[{"part":"<exact part name from the list>","offers":[{"source":"Allegro"|"OLX","title":"...","price":123,"currency":"PLN"|"UAH"|"EUR"|"USD","url":"https://...","condition":"used"|"new"|"unknown"}],"laborHoursMin":1,"laborHoursMax":2,"paint":true,"note":"..."}]}`;
+
+const SYSTEM_PL = SYSTEM_UA.replace("a Ukrainian car-import company", "a Polish car-import company")
+  .replace(' and on olx.ua (search in Ukrainian or Russian)', ' and on olx.pl (search in Polish)')
+  .replace("Write title and note in Ukrainian.", "Write title and note in Polish.");
 
 interface Body {
   reportId?: unknown;
@@ -80,7 +84,7 @@ async function handlePOST(request: Request) {
       const message = await client.messages.create({
         model: MODEL,
         max_tokens: 8000,
-        system: SYSTEM,
+        system: user.market === "pl" ? SYSTEM_PL : SYSTEM_UA,
         messages,
         tools: [
           {

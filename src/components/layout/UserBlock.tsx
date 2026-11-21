@@ -3,6 +3,7 @@
 import { LogOut, Moon, Sun } from "lucide-react";
 import { ROLE_LABEL } from "@/lib/shared/roles";
 import type { Me } from "@/types/auth";
+import { t } from "@/lib/shared/i18n";
 
 export function UserBlock({ user, theme, onToggleTheme, onLogout }: { user: Me; theme: "light" | "dark"; onToggleTheme: () => void; onLogout: () => void }) {
   return (
@@ -22,8 +23,8 @@ export function UserBlock({ user, theme, onToggleTheme, onLogout }: { user: Me; 
         <button
           type="button"
           onClick={onToggleTheme}
-          aria-label={theme === "dark" ? "Увімкнути світлу тему" : "Увімкнути темну тему"}
-          title={theme === "dark" ? "Світла тема" : "Темна тема"}
+          aria-label={theme === "dark" ? t("Увімкнути світлу тему") : t("Увімкнути темну тему")}
+          title={theme === "dark" ? t("Світла тема") : t("Темна тема")}
           className="grid size-9 place-items-center rounded-lg border border-line text-muted transition hover:bg-panel2 hover:text-ink"
         >
           {theme === "dark" ? <Sun className="size-4" /> : <Moon className="size-4" />}
@@ -33,7 +34,7 @@ export function UserBlock({ user, theme, onToggleTheme, onLogout }: { user: Me; 
           onClick={onLogout}
           className="flex h-9 flex-1 items-center justify-center gap-2 rounded-lg border border-line text-sm font-medium text-muted transition hover:bg-bad-bg hover:text-bad"
         >
-          <LogOut className="size-4" /> Вийти
+          <LogOut className="size-4" /> {t("Вийти")}
         </button>
       </div>
     </div>

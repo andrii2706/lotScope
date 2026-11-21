@@ -6,14 +6,15 @@ import { cleanVin } from "@/lib/shared/vin";
 import type { Comparables } from "@/types/auction";
 import type { Analysis, HistoryDoc } from "@/types/report";
 import type { VinHistory } from "@/types/vin";
+import { t, L, localeOf } from "@/lib/shared/i18n";
 
-const MILEAGE = {
+const MILEAGE = L({
   consistent: { text: "Пробіг рівний", cls: "bg-good-bg text-good" },
   inconsistent: { text: "Пробіг під сумнівом", cls: "bg-bad-bg text-bad" },
   unknown: { text: "Пробіг не перевірено", cls: "bg-warn-bg text-warn" },
-};
+});
 
-const money = (n: number) => `$${Math.round(n).toLocaleString("uk-UA")}`;
+const money = (n: number) => `$${Math.round(n).toLocaleString(localeOf())}`;
 
 export function HistoryMarket({
   analysis,
@@ -43,7 +44,7 @@ export function HistoryMarket({
           <span className="grid size-8 place-items-center rounded-lg bg-panel2 text-accent-text">
             <History className="size-4" />
           </span>
-          Історія за VIN
+          {t("Історія за VIN")}
           {provided && (
             <span className={`ml-auto rounded-full px-2.5 py-1 text-[11px] font-bold ${mileage.cls}`}>{mileage.text}</span>
           )}
@@ -67,7 +68,7 @@ export function HistoryMarket({
               <ul className="mt-3 space-y-1 border-t border-line pt-3 text-xs text-muted">
                 {vinHistory.auctionSales.map((s, i) => (
                   <li key={`${s.lotNumber}-${i}`}>
-                    <span className="font-mono">{s.date.slice(0, 10)}</span> · {s.auction} {s.lotNumber && `лот ${s.lotNumber}`}
+                    <span className="font-mono">{s.date.slice(0, 10)}</span> · {s.auction} {s.lotNumber && t("лот {v0}", { v0: s.lotNumber })}
                     {s.damage && ` · ${s.damage}`}
                     {s.priceUsd > 0 && ` · ${money(s.priceUsd)}`}
                   </li>
@@ -75,15 +76,15 @@ export function HistoryMarket({
               </ul>
             )}
             <p className="mt-3 text-xs text-faint">
-              Джерела: {[...(vinHistory?.sources ?? []), ...(historyFiles ?? [])].join(", ") || "—"}
+              {t("Джерела:")} {[...(vinHistory?.sources ?? []), ...(historyFiles ?? [])].join(", ") || "—"}
             </p>
           </>
         ) : (
           <div className="text-sm text-muted">
             <p>
               {historyDocs?.length
-                ? "Звіт історії додано до лота, але висновків з нього в аналізі немає. Перегляньте файл нижче."
-                : "Звіт Carfax чи AutoCheck до аналізу не додавали, тож попередні ДТП і пробіг не перевірені."}
+                ? t("Звіт історії додано до лота, але висновків з нього в аналізі немає. Перегляньте файл нижче.")
+                : t("Звіт Carfax чи AutoCheck до аналізу не додавали, тож попередні ДТП і пробіг не перевірені.")}
             </p>
             {!historyDocs?.length && cleanedVin.length === 17 && (
               <span className="no-print mt-2 flex flex-wrap gap-x-4 gap-y-1">
@@ -106,33 +107,33 @@ export function HistoryMarket({
           <span className="grid size-8 place-items-center rounded-lg bg-panel2 text-accent-text">
             <BarChart3 className="size-4" />
           </span>
-          Продажі схожих лотів
+          {t("Продажі схожих лотів")}
         </h2>
         {stats ? (
           <>
             <p className="text-3xl font-semibold tracking-tight">{money(stats.medianUsd)}</p>
-            <p className="mt-1 text-sm text-muted">медіана фінальної ставки на аукціонах США</p>
+            <p className="mt-1 text-sm text-muted">{t("медіана фінальної ставки на аукціонах США")}</p>
             <dl className="mt-4 grid grid-cols-3 gap-3 text-sm">
               <div>
-                <dt className="text-xs text-muted">Середина ринку</dt>
+                <dt className="text-xs text-muted">{t("Середина ринку")}</dt>
                 <dd className="font-bold">{money(stats.p25Usd)}–{money(stats.p75Usd)}</dd>
               </div>
               <div>
-                <dt className="text-xs text-muted">Розкид</dt>
+                <dt className="text-xs text-muted">{t("Розкид")}</dt>
                 <dd className="font-bold">{money(stats.minUsd)}–{money(stats.maxUsd)}</dd>
               </div>
               <div>
-                <dt className="text-xs text-muted">Продажів</dt>
+                <dt className="text-xs text-muted">{t("Продажів")}</dt>
                 <dd className="font-bold">{stats.count}</dd>
               </div>
             </dl>
             <p className="mt-3 text-xs text-faint">
-              {comparables!.query} · {comparables!.source}. Ціни лотів з різними пошкодженнями, тож це орієнтир, а не оцінка цього авто.
+              {comparables!.query} · {comparables!.source}{t(". Ціни лотів з різними пошкодженнями, тож це орієнтир, а не оцінка цього авто.")}
             </p>
           </>
         ) : (
           <p className="text-sm text-muted">
-            Даних про продажі схожих лотів немає. Вони з’являються, коли лот знайдено через «Знайти лот».
+            {t("Даних про продажі схожих лотів немає. Вони з’являються, коли лот знайдено через «Знайти лот».")}
           </p>
         )}
       </section>

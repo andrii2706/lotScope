@@ -8,6 +8,7 @@ import { photoProxyPath, safePhotoUrl } from "@/lib/server/lotPhotos";
 import { cookies } from "next/headers";
 import { fail } from "@/lib/server/http";
 import { route } from "@/lib/server/route";
+import { langOf, withLang } from "@/lib/shared/i18n";
 import type { AuctionName, Comparables, LotLookupResponse } from "@/types/auction";
 
 export const maxDuration = 60;
@@ -54,7 +55,7 @@ async function handlePOST(request: Request) {
   const base: LotLookupResponse = {
     configured: auctionConfigured(),
     query,
-    links: searchLinks(query),
+    links: withLang(langOf(user.market), () => searchLinks(query)),
     found: false,
   };
   if (!base.configured) return Response.json(base);
@@ -83,7 +84,7 @@ async function handlePOST(request: Request) {
     const vinQuery = mapped.lot.vin ? parseLotQuery(mapped.lot.vin) : query;
     const response: LotLookupResponse = {
       ...base,
-      links: [...new Map([...searchLinks(query, mapped.lot), ...searchLinks(vinQuery, mapped.lot)].map((l) => [l.href, l])).values()],
+      links: withLang(langOf(user.market), () => [...new Map([...searchLinks(query, mapped.lot), ...searchLinks(vinQuery, mapped.lot)].map((l) => [l.href, l])).values()]),
       found: true,
       lot: mapped.lot,
       photos,

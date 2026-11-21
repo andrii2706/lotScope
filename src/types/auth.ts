@@ -31,6 +31,7 @@ export interface CurrentUser {
   suspended: boolean;
   suspendedReason: string;
   sessionExpiresAt: string;
+  market: "ua" | "pl";
 }
 
 export interface Me {
@@ -47,6 +48,7 @@ export interface Me {
   suspended: boolean;
   suspendedReason: string;
   sessionExpiresAt: string;
+  market: "ua" | "pl";
 }
 
 export type MeState = { status: "loading" } | { status: "ready"; user: Me | null; dbConfigured: boolean; dbError?: string };

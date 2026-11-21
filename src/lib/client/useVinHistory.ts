@@ -5,6 +5,7 @@ import { cleanVin } from "../shared/vin.ts";
 import { responseMessage } from "../shared/errors.ts";
 import { FEATURES } from "../../config/features.ts";
 import type { VinHistoryState, VinHistoryResponse } from "@/types/vin";
+import { t } from "../shared/i18n.ts";
 
 export function useVinHistory(rawVin: string): VinHistoryState {
   const vin = cleanVin(rawVin);
@@ -25,12 +26,12 @@ export function useVinHistory(rawVin: string): VinHistoryState {
         const data = (await res.json().catch(() => null)) as (VinHistoryResponse & { error?: string }) | null;
         if (!active) return;
         if (!res.ok || !data || data.error) {
-          setState({ status: "error", vin, message: responseMessage("/api/history", res.status, data, "Не вдалося отримати історію за VIN.") });
+          setState({ status: "error", vin, message: responseMessage("/api/history", res.status, data, t("Не вдалося отримати історію за VIN.")) });
         } else {
           setState({ status: "done", vin, response: data });
         }
       } catch {
-        if (active) setState({ status: "error", vin, message: "Не вдалося отримати історію за VIN." });
+        if (active) setState({ status: "error", vin, message: t("Не вдалося отримати історію за VIN.") });
       }
     }, 600);
     return () => {

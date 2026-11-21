@@ -2,7 +2,8 @@
 
 import { Check, GraduationCap, Pencil, Wrench, X } from "lucide-react";
 import { useState } from "react";
-import { usd } from "@/lib/shared/calc";
+import { currencySign, moneyOf, moneyRange } from "@/lib/shared/calc";
+import { useCostSettings } from "@/lib/client/rates";
 import { ACTION, VERDICT, lotTitle } from "@/lib/shared/labels";
 import { LESSON_TAGS } from "@/lib/shared/lessons";
 import { removeLesson, saveLesson } from "@/lib/client/lessons";
@@ -11,12 +12,13 @@ import { getSettings, saveSettings, updateReport } from "@/lib/client/store";
 import { Button, Field, NumberInput, Select } from "@/components/ui";
 import { userMessage } from "@/lib/shared/errors";
 import type { ExpertPartReview, ExpertReview, Report, Verdict } from "@/types/report";
+import { t, L, localeOf } from "@/lib/shared/i18n";
 
-const VERDICTS: { value: Verdict; label: string; cls: string }[] = [
+const VERDICTS: { value: Verdict; label: string; cls: string }[] = L([
   { value: "buy", label: "Купувати", cls: "border-good bg-good-bg text-good" },
   { value: "caution", label: "Обережно", cls: "border-warn bg-warn-bg text-warn" },
   { value: "avoid", label: "Не брати", cls: "border-bad bg-bad-bg text-bad" },
-];
+]);
 
 function blank(report: Report): ExpertReview {
   return {
@@ -39,6 +41,10 @@ export function ExpertReviewCard({ report }: { report: Report }) {
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState<ExpertReview>(() => saved ?? blank(report));
   const [applyRange, setApplyRange] = useState(true);
+  const m = moneyOf(useCostSettings());
+  const sign = currencySign(m);
+  const toLocal = (usdValue: number) => Math.round(usdValue * m.rate);
+  const fromLocal = (value: number) => value / m.rate;
   const me = useMe();
   const canTeach = me.status === "ready" && (me.user?.role === "expert");
 
@@ -75,7 +81,7 @@ export function ExpertReviewCard({ report }: { report: Report }) {
         await removeLesson({ reportId: report.id });
       }
     } catch (e) {
-      setError(userMessage(e, "Не вдалося зберегти урок."));
+      setError(userMessage(e, t("Не вдалося зберегти урок.")));
       setSaving(false);
       return;
     }
@@ -112,40 +118,40 @@ export function ExpertReviewCard({ report }: { report: Report }) {
           <Wrench className="size-5" />
         </span>
         <div className="min-w-0 flex-1 basis-56">
-          <h2 className="text-base font-semibold tracking-tight sm:text-lg">Перевірка експерта СТО</h2>
+          <h2 className="text-base font-semibold tracking-tight sm:text-lg">{t("Перевірка експерта СТО")}</h2>
           {saved ? (
             <p className="text-sm text-muted">
-              {saved.expert} · {new Date(saved.reviewedAt).toLocaleDateString("uk-UA")}
+              {saved.expert} · {new Date(saved.reviewedAt).toLocaleDateString(localeOf())}
               {verdictInfo && (
                 <>
                   {" "}
-                  · висновок: <span className="font-bold text-ink">{verdictInfo.label}</span>
+                  {t("· висновок:")} <span className="font-bold text-ink">{verdictInfo.label}</span>
                 </>
               )}
               {saved.repairMaxUsd > 0 && (
                 <>
                   {" "}
-                  · ремонт {usd(saved.repairMinUsd)}–{usd(saved.repairMaxUsd)}
+                  {t("· ремонт")} {moneyRange(saved.repairMinUsd, saved.repairMaxUsd, m)}
                 </>
               )}
               {saved.parts.some((p) => p.agree !== null) && (
                 <>
                   {" "}
-                  · незгод по деталях: {saved.parts.filter((p) => p.agree === false).length} з{" "}
+                  {t("· незгод по деталях:")} {saved.parts.filter((p) => p.agree === false).length} {t("з")}{" "}
                   {saved.parts.filter((p) => p.agree !== null).length}
                 </>
               )}
             </p>
           ) : (
             <p className="text-sm text-muted">
-              Досвідчений майстер звіряє оцінку ШІ. Його правки стають уроками для наступних аналізів.
+              {t("Досвідчений майстер звіряє оцінку ШІ. Його правки стають уроками для наступних аналізів.")}
             </p>
           )}
         </div>
         {!open && (
           <Button variant={saved ? "secondary" : "primary"} onClick={() => setOpen(true)}>
             {saved ? <Pencil className="size-4" /> : <Wrench className="size-4" />}
-            {saved ? "Редагувати перевірку" : "Перевірити звіт"}
+            {saved ? t("Редагувати перевірку") : t("Перевірити звіт")}
           </Button>
         )}
       </header>
@@ -157,7 +163,7 @@ export function ExpertReviewCard({ report }: { report: Report }) {
             <p className="flex gap-2 leading-relaxed text-ink/90">
               <GraduationCap className="mt-0.5 size-4 shrink-0 text-accent-text" />
               <span>
-                <span className="font-bold">Урок для моделі{saved.useLesson ? "" : " (вимкнено)"}: </span>
+                <span className="font-bold">{t("Урок для моделі")}{saved.useLesson ? "" : t(" (вимкнено)")}: </span>
                 {saved.lesson}
               </span>
             </p>
@@ -168,17 +174,17 @@ export function ExpertReviewCard({ report }: { report: Report }) {
       {open && (
         <div className="space-y-6 border-t border-line p-5 sm:p-6">
           <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)_minmax(0,1fr)]">
-            <Field label="Експерт" required>
+            <Field label={t("Експерт")} required>
               <input
                 className="control"
-                placeholder="Ім'я, спеціалізація"
+                placeholder={t("Ім'я, спеціалізація")}
                 value={draft.expert}
                 onChange={(e) => set("expert", e.target.value)}
               />
             </Field>
             <div>
-              <span className="mb-1.5 block text-[13px] font-medium text-ink">Висновок експерта</span>
-              <div role="radiogroup" aria-label="Висновок експерта" className="grid grid-cols-3 gap-1.5">
+              <span className="mb-1.5 block text-[13px] font-medium text-ink">{t("Висновок експерта")}</span>
+              <div role="radiogroup" aria-label={t("Висновок експерта")} className="grid grid-cols-3 gap-1.5">
                 {VERDICTS.map((v) => (
                   <button
                     key={v.value}
@@ -196,24 +202,24 @@ export function ExpertReviewCard({ report }: { report: Report }) {
               </div>
             </div>
             <div className="grid grid-cols-2 gap-2">
-              <Field label="Ремонт від">
-                <NumberInput value={draft.repairMinUsd} onChange={(v) => set("repairMinUsd", v)} suffix="$" />
+              <Field label={t("Ремонт від")}>
+                <NumberInput value={toLocal(draft.repairMinUsd)} onChange={(v) => set("repairMinUsd", fromLocal(v))} suffix={sign} />
               </Field>
-              <Field label="Ремонт до">
-                <NumberInput value={draft.repairMaxUsd} onChange={(v) => set("repairMaxUsd", v)} suffix="$" />
+              <Field label={t("Ремонт до")}>
+                <NumberInput value={toLocal(draft.repairMaxUsd)} onChange={(v) => set("repairMaxUsd", fromLocal(v))} suffix={sign} />
               </Field>
             </div>
           </div>
           <p className="-mt-3 text-xs text-muted">
-            ШІ оцінив ремонт у {usd(report.analysis.repairMinUsd)}–{usd(report.analysis.repairMaxUsd)}.
+            {t("ШІ оцінив ремонт у")} {moneyRange(report.analysis.repairMinUsd, report.analysis.repairMaxUsd, m)}.
           </p>
 
           {parts.length > 0 && (
             <div>
               <p className="mb-2 text-[13px] font-medium text-ink">
-                Деталі від ШІ{" "}
+                {t("Деталі від ШІ")}{" "}
                 <span className="font-semibold text-muted">
-                  · перевірено {reviewed} з {parts.length}, незгод {disagreed}
+                  {t("· перевірено")} {reviewed} {t("з")} {parts.length}{t(", незгод")} {disagreed}
                 </span>
               </p>
               <ul className="divide-y divide-line rounded-xl border border-line">
@@ -227,7 +233,7 @@ export function ExpertReviewCard({ report }: { report: Report }) {
                       <div className="min-w-0">
                         <p className="font-bold">{p.part}</p>
                         <p className="text-xs text-muted">
-                          {ACTION[p.action]} · {usd(p.costMinUsd)}–{usd(p.costMaxUsd)}
+                          {ACTION[p.action]} · {moneyRange(p.costMinUsd, p.costMaxUsd, m)}
                           {p.note && ` · ${p.note}`}
                         </p>
                       </div>
@@ -242,7 +248,7 @@ export function ExpertReviewCard({ report }: { report: Report }) {
                               : "border-line2 text-muted hover:text-ink"
                           }`}
                         >
-                          <Check className="size-3.5" /> Згоден
+                          <Check className="size-3.5" /> {t("Згоден")}
                         </button>
                         <button
                           type="button"
@@ -254,27 +260,27 @@ export function ExpertReviewCard({ report }: { report: Report }) {
                               : "border-line2 text-muted hover:text-ink"
                           }`}
                         >
-                          <X className="size-3.5" /> Ні
+                          <X className="size-3.5" /> {t("Ні")}
                         </button>
                       </div>
                       {r.agree === false && (
                         <div className="grid gap-2 sm:col-span-2 sm:grid-cols-[8rem_8rem_minmax(0,1fr)]">
                           <NumberInput
-                            value={r.costMinUsd}
-                            onChange={(v) => setPart(i, { costMinUsd: v })}
-                            suffix="$"
-                            placeholder="від"
+                            value={toLocal(r.costMinUsd)}
+                            onChange={(v) => setPart(i, { costMinUsd: fromLocal(v) })}
+                            suffix={sign}
+                            placeholder={t("від")}
                           />
                           <NumberInput
-                            value={r.costMaxUsd}
-                            onChange={(v) => setPart(i, { costMaxUsd: v })}
-                            suffix="$"
-                            placeholder="до"
+                            value={toLocal(r.costMaxUsd)}
+                            onChange={(v) => setPart(i, { costMaxUsd: fromLocal(v) })}
+                            suffix={sign}
+                            placeholder={t("до")}
                           />
                           <input
                             className="control"
-                            aria-label={`Що не так з оцінкою: ${p.part}`}
-                            placeholder="Що не так: дія, ціна, деталь"
+                            aria-label={t("Що не так з оцінкою: {v0}", { v0: p.part })}
+                            placeholder={t("Що не так: дія, ціна, деталь")}
                             value={r.note}
                             onChange={(e) => setPart(i, { note: e.target.value })}
                           />
@@ -288,18 +294,18 @@ export function ExpertReviewCard({ report }: { report: Report }) {
           )}
 
           <div className="grid gap-4 md:grid-cols-2">
-            <Field label="Що ШІ пропустив">
+            <Field label={t("Що ШІ пропустив")}>
               <textarea
                 className="control min-h-24"
-                placeholder="Деталі чи ризики, яких немає у звіті"
+                placeholder={t("Деталі чи ризики, яких немає у звіті")}
                 value={draft.missedParts}
                 onChange={(e) => set("missedParts", e.target.value)}
               />
             </Field>
-            <Field label="Коментар експерта">
+            <Field label={t("Коментар експерта")}>
               <textarea
                 className="control min-h-24"
-                placeholder="Як би ви оцінили цей лот і чому"
+                placeholder={t("Як би ви оцінили цей лот і чому")}
                 value={draft.comment}
                 onChange={(e) => set("comment", e.target.value)}
               />
@@ -309,8 +315,8 @@ export function ExpertReviewCard({ report }: { report: Report }) {
           {canTeach ? (
             <div className="rounded-xl border border-line2 bg-paper p-4">
               <Field
-                label="Урок для моделі"
-                hint="Одне загальне правило, яке допоможе на інших лотах. Наприклад: «Якщо удар у низ задньої дверки з розривом металу, закладай ремонт порога»."
+                label={t("Урок для моделі")}
+                hint={t("Одне загальне правило, яке допоможе на інших лотах. Наприклад: «Якщо удар у низ задньої дверки з розривом металу, закладай ремонт порога».")}
               >
                 <textarea
                   className="control min-h-20"
@@ -320,8 +326,8 @@ export function ExpertReviewCard({ report }: { report: Report }) {
               </Field>
               <div className="mt-3 flex flex-wrap items-center gap-x-6 gap-y-3">
                 <label className="flex items-center gap-2 text-sm font-bold">
-                  <span className="text-muted">Тема</span>
-                  <Select size="sm" className="w-52" value={draft.lessonTag} onChange={(v) => set("lessonTag", v)} options={LESSON_TAGS.map((t) => ({ value: t, label: t }))} />
+                  <span className="text-muted">{t("Тема")}</span>
+                  <Select size="sm" className="w-52" value={draft.lessonTag} onChange={(v) => set("lessonTag", v)} options={LESSON_TAGS.map((name) => ({ value: name, label: t(name) }))} />
                 </label>
                 <label className="flex items-center gap-2 text-sm font-bold">
                   <input
@@ -330,12 +336,12 @@ export function ExpertReviewCard({ report }: { report: Report }) {
                     checked={draft.useLesson}
                     onChange={(e) => set("useLesson", e.target.checked)}
                   />
-                  Враховувати в наступних аналізах
+                  {t("Враховувати в наступних аналізах")}
                 </label>
               </div>
             </div>
           ) : (
-            <p className="text-xs text-muted">Уроки для моделі пишуть технічні спеціалісти СТО.</p>
+            <p className="text-xs text-muted">{t("Уроки для моделі пишуть технічні спеціалісти СТО.")}</p>
           )}
 
           <div className="flex flex-wrap items-center gap-3">
@@ -347,7 +353,7 @@ export function ExpertReviewCard({ report }: { report: Report }) {
                   checked={applyRange}
                   onChange={(e) => setApplyRange(e.target.checked)}
                 />
-                Використати вилку експерта в ціні під ключ
+                {t("Використати вилку експерта в ціні під ключ")}
               </label>
             )}
             <Button
@@ -358,16 +364,16 @@ export function ExpertReviewCard({ report }: { report: Report }) {
                 setOpen(false);
               }}
             >
-              Скасувати
+              {t("Скасувати")}
             </Button>
             <Button disabled={!canSave || saving} onClick={save}>
-              <Check className="size-4" /> Зберегти перевірку
+              <Check className="size-4" /> {t("Зберегти перевірку")}
             </Button>
           </div>
           {error && <p className="-mt-3 text-right text-sm font-semibold text-bad">{error}</p>}
           {!canSave && (
             <p className="-mt-3 text-right text-xs text-muted">
-              Вкажіть експерта й хоча б висновок, оцінку деталі чи коментар.
+              {t("Вкажіть експерта й хоча б висновок, оцінку деталі чи коментар.")}
             </p>
           )}
         </div>

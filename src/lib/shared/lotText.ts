@@ -1,4 +1,5 @@
 import { FUEL } from "./labels.ts";
+import { L, getLang, localeOf, t } from "./i18n.ts";
 import type { LotInput } from "@/types/report";
 
 const norm = (s: string) => s.toLowerCase().replace(/[‐-―]/g, "-").replace(/\s*([/-])\s*/g, "$1").replace(/\s+/g, " ").trim();
@@ -60,7 +61,7 @@ const DAMAGE: Record<string, string> = {
 export function damageText(raw: string): string {
   const key = norm(raw || "");
   if (!key) return "";
-  return DAMAGE[key] ?? raw.trim();
+  return DAMAGE[key] ? t(DAMAGE[key]) : raw.trim();
 }
 
 const STATES: Record<string, string> = {
@@ -97,14 +98,14 @@ const STATE_NAMES: Record<string, string> = Object.fromEntries(
 );
 
 function regionName(token: string): string {
-  const t = token.trim();
-  if (!t) return "";
-  const up = t.toUpperCase();
-  if (STATES[up]) return `штат ${STATES[up]}`;
-  if (PROVINCES[up]) return `провінція ${PROVINCES[up]}`;
-  const code = STATE_NAMES[t.toLowerCase()];
-  if (code && STATES[code]) return `штат ${STATES[code]}`;
-  if (code && PROVINCES[code]) return `провінція ${PROVINCES[code]}`;
+  const value = token.trim();
+  if (!value) return "";
+  const up = value.toUpperCase();
+  if (STATES[up]) return t("штат {v0}", { v0: t(STATES[up]) });
+  if (PROVINCES[up]) return t("провінція {v0}", { v0: t(PROVINCES[up]) });
+  const code = STATE_NAMES[value.toLowerCase()];
+  if (code && STATES[code]) return t("штат {v0}", { v0: t(STATES[code]) });
+  if (code && PROVINCES[code]) return t("провінція {v0}", { v0: t(PROVINCES[code]) });
   return "";
 }
 
@@ -143,7 +144,7 @@ export function titleInfo(raw: string): TitleInfo | null {
     if (name) region = regionName(name);
   }
   const match = TITLES.find((t) => t.test.test(lower));
-  return { label: match?.label ?? value.replace(/\s*\([^)]*\)\s*/g, " ").trim(), note: match?.note ?? "", region, raw: value };
+  return { label: match?.label ?? value.replace(/\s*\([^)]*\)\s*/g, " ").trim(), note: match?.note ? t(match.note) : "", region, raw: value };
 }
 
 export function titleText(raw: string): string {
@@ -161,36 +162,48 @@ export function plural(n: number, one: string, few: string, many: string): strin
   return many;
 }
 
+function milesWord(n: number): string {
+  if (getLang() === "pl") {
+    const a = Math.abs(n) % 100;
+    const b = a % 10;
+    if (n === 1) return "mila";
+    if (b >= 2 && b <= 4 && !(a >= 12 && a <= 14)) return "mile";
+    return "mil";
+  }
+  return plural(n, "миля", "милі", "миль");
+}
+
 export const NOT_ACTUAL_MILES = 10;
+
+const notGiven = () => t("пробіг не вказано");
 
 export function mileageText(lot: Pick<LotInput, "mileage" | "mileageUnit">): string {
   if (!lot.mileage || lot.mileage < 0) return "";
-  if (lot.mileage <= NOT_ACTUAL_MILES) return "пробіг не вказано";
+  if (lot.mileage <= NOT_ACTUAL_MILES) return notGiven();
   const km = lot.mileageUnit === "mi" ? Math.round(lot.mileage * 1.609) : Math.round(lot.mileage);
-  const main = `${km.toLocaleString("uk-UA")} км`;
+  const main = `${km.toLocaleString(localeOf())} ${t("км")}`;
   if (lot.mileageUnit !== "mi") return main;
   const mi = Math.round(lot.mileage);
-  return `${main} (${mi.toLocaleString("uk-UA")} ${plural(mi, "миля", "милі", "миль")})`;
+  return `${main} (${mi.toLocaleString(localeOf())} ${milesWord(mi)})`;
 }
 
 export function mileageShort(lot: Pick<LotInput, "mileage" | "mileageUnit">): string {
   if (!lot.mileage || lot.mileage < 0) return "";
-  if (lot.mileage <= NOT_ACTUAL_MILES) return "пробіг не вказано";
+  if (lot.mileage <= NOT_ACTUAL_MILES) return notGiven();
   const km = lot.mileageUnit === "mi" ? Math.round(lot.mileage * 1.609) : Math.round(lot.mileage);
-  return `${km.toLocaleString("uk-UA")} км`;
+  return `${km.toLocaleString(localeOf())} ${t("км")}`;
 }
 
-export const RUN_TEXT: Record<LotInput["runStatus"], string> = {
+export const RUN_TEXT: Record<LotInput["runStatus"], string> = L({
   run_drive: "заводиться і їде",
   starts: "заводиться, рух не перевіряли",
   no_start: "не заводиться",
   unknown: "",
-};
-
+});
 
 export function engineText(lot: Pick<LotInput, "fuel" | "engineCc" | "batteryKwh">): string {
-  if (lot.fuel === "electric") return lot.batteryKwh ? `електро, батарея ${lot.batteryKwh} кВт·год` : "електро";
-  return lot.engineCc ? `${FUEL[lot.fuel]}, ${(lot.engineCc / 1000).toFixed(1)} л` : FUEL[lot.fuel];
+  if (lot.fuel === "electric") return lot.batteryKwh ? t("електро, батарея {v0} кВт·год", { v0: lot.batteryKwh }) : t("електро");
+  return lot.engineCc ? t("{v0}, {v1} л", { v0: FUEL[lot.fuel], v1: (lot.engineCc / 1000).toLocaleString(localeOf(), { minimumFractionDigits: 1, maximumFractionDigits: 1 }) }) : FUEL[lot.fuel];
 }
 
 export function damagesText(lot: Pick<LotInput, "primaryDamage" | "secondaryDamage">): string {
@@ -198,7 +211,7 @@ export function damagesText(lot: Pick<LotInput, "primaryDamage" | "secondaryDama
   const secondary = damageText(lot.secondaryDamage);
   if (!primary) return secondary;
   if (!secondary || secondary === primary) return primary;
-  return `${primary}, додатково ${secondary}`;
+  return t("{v0}, додатково {v1}", { v0: primary, v1: secondary });
 }
 
 const cap = (s: string) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : s);
@@ -206,18 +219,18 @@ const cap = (s: string) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : s);
 export function lotDescription(lot: LotInput): string[] {
   const out: string[] = [];
   const mileage = mileageText(lot);
-  const base = [cap(engineText(lot)), mileage && (mileage === "пробіг не вказано" ? mileage : `пробіг ${mileage}`)].filter(Boolean).join(", ");
+  const base = [cap(engineText(lot)), mileage && (mileage === notGiven() ? mileage : t("пробіг {v0}", { v0: mileage }))].filter(Boolean).join(", ");
   if (base) out.push(`${base}.`);
   const damage = damagesText(lot);
-  if (damage) out.push(`Пошкодження за даними аукціону: ${damage}.`);
+  if (damage) out.push(t("Пошкодження за даними аукціону: {v0}.", { v0: damage }));
   const title = titleInfo(lot.titleType);
   if (title) {
     const where = title.region ? ` (${title.region})` : "";
-    out.push(`Документ ${title.label}${where}${title.note ? `: ${title.note}` : ""}.`);
+    out.push(t("Документ {v0}{v1}{v2}.", { v0: title.label, v1: where, v2: title.note ? `: ${title.note}` : "" }));
   }
   const state = [
     RUN_TEXT[lot.runStatus] ? cap(RUN_TEXT[lot.runStatus]) : "",
-    lot.airbags === "deployed" ? "подушки безпеки спрацювали" : lot.airbags === "not_deployed" ? "подушки безпеки цілі" : "",
+    lot.airbags === "deployed" ? t("подушки безпеки спрацювали") : lot.airbags === "not_deployed" ? t("подушки безпеки цілі") : "",
   ].filter(Boolean);
   if (state.length) out.push(`${cap(state.join(", "))}.`);
   return out;

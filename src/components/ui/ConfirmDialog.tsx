@@ -3,6 +3,7 @@
 import { TriangleAlert, X } from "lucide-react";
 import { useEffect, useRef, useSyncExternalStore } from "react";
 import type { ConfirmOptions } from "@/types/ui";
+import { t } from "@/lib/shared/i18n";
 
 interface Request extends ConfirmOptions {
   resolve: (ok: boolean) => void;
@@ -75,7 +76,7 @@ export function ConfirmHost() {
       >
         <button
           type="button"
-          aria-label="Закрити"
+          aria-label={t("Закрити")}
           onClick={() => close(false)}
           className="absolute right-3 top-3 grid size-9 place-items-center rounded-full text-muted transition hover:bg-panel2 hover:text-ink"
         >
@@ -105,7 +106,7 @@ export function ConfirmHost() {
             onClick={() => close(false)}
             className="inline-flex h-11 items-center justify-center rounded-xl border border-line2 bg-surface px-5 text-sm font-bold transition hover:bg-panel2"
           >
-            {req.cancelLabel ?? "Скасувати"}
+            {req.cancelLabel ?? t("Скасувати")}
           </button>
           <button
             ref={confirmRef}
@@ -115,7 +116,7 @@ export function ConfirmHost() {
               danger ? "bg-bad text-on-ink" : "bg-accent text-accent-ink"
             }`}
           >
-            {req.confirmLabel ?? "Підтвердити"}
+            {req.confirmLabel ?? t("Підтвердити")}
           </button>
         </div>
       </div>

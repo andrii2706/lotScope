@@ -1,4 +1,5 @@
 import type { Actor, Permission, Role } from "@/types/auth";
+import { L } from "./i18n.ts";
 export const ROLES: Role[] = ["superadmin", "admin", "lead", "manager", "expert", "user"];
 
 const MATRIX: Record<Role, Permission[]> = {
@@ -18,23 +19,23 @@ export function allows(role: Role, permission: Permission): boolean {
   return MATRIX[role].includes(permission);
 }
 
-export const ROLE_LABEL: Record<Role, string> = {
+export const ROLE_LABEL: Record<Role, string> = L({
   superadmin: "Супер адмін",
   admin: "Адмін компанії",
   lead: "Керівник команди",
   manager: "Менеджер з пошуку",
   expert: "Технічний спеціаліст СТО",
   user: "Користувач",
-};
+});
 
-export const ROLE_HINT: Record<Role, string> = {
+export const ROLE_HINT: Record<Role, string> = L({
   superadmin: "Створює та видаляє компанії й профілі, бачить журнал дій.",
   admin: "Створює команди, призначає керівників, запрошує та видаляє людей, бачить усі звіти й дії компанії.",
   lead: "Шукає й аналізує лоти, бачить звіти та дії менеджерів своєї команди, запрошує й вимикає їх.",
   manager: "Шукає лоти, робить аналіз, зберігає звіти та формує PDF.",
   expert: "Перевіряє звіти й навчає AI-агента уроками.",
   user: "Шукає лоти, робить аналіз, зберігає звіти та формує PDF.",
-};
+});
 
 export const INVITABLE_BY_ADMIN: Role[] = ["lead", "manager", "expert"];
 export const INVITABLE_BY_LEAD: Role[] = ["manager"];

@@ -1,4 +1,5 @@
 import type { VinMismatch } from "@/types/vin";
+import { t } from "./i18n.ts";
 const TRANSLIT: Record<string, number> = {
   A: 1, B: 2, C: 3, D: 4, E: 5, F: 6, G: 7, H: 8,
   J: 1, K: 2, L: 3, M: 4, N: 5, P: 7, R: 9,
@@ -40,16 +41,16 @@ export function vinFlags(listingVin: string, photoVin: string): string[] {
   const flags: string[] = [];
   const listing = cleanVin(listingVin);
   if (listing.length > 0 && listing.length !== 17) {
-    flags.push(`VIN у картці лота має ${listing.length} символів замість 17. Перевірте, чи він введений повністю.`);
+    flags.push(t("VIN у картці лота має {v0} символів замість 17. Перевірте, чи він введений повністю.", { v0: listing.length }));
   } else if (listing.length === 17 && vinCheckDigitValid(listing) === false) {
-    flags.push("Контрольна цифра VIN у картці лота не сходиться. Імовірна одруківка при введенні або змінений VIN.");
+    flags.push(t("Контрольна цифра VIN у картці лота не сходиться. Імовірна одруківка при введенні або змінений VIN."));
   }
   const diffs = compareVins(listing, photoVin);
   if (diffs && diffs.length > 0) {
     const where = diffs
-      .map((d) => `${d.position}-й символ: у картці «${d.listing}», на фото «${d.photo}»`)
+      .map((d) => t("{v0}-й символ: у картці «{v1}», на фото «{v2}»", { v0: d.position, v1: d.listing, v2: d.photo }))
       .join("; ");
-    flags.push(`VIN у картці лота не збігається з VIN на фото (${where}). Звірте VIN перед ставкою.`);
+    flags.push(t("VIN у картці лота не збігається з VIN на фото ({v0}). Звірте VIN перед ставкою.", { v0: where }));
   }
   return flags;
 }

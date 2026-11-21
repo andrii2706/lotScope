@@ -4,6 +4,7 @@ import { Check, ChevronDown } from "lucide-react";
 import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState, type KeyboardEvent } from "react";
 import { createPortal } from "react-dom";
 import type { SelectOption } from "@/types/ui";
+import { t } from "@/lib/shared/i18n";
 
 interface Position {
   left: number;
@@ -20,7 +21,7 @@ export function Select<T extends string>({
   value,
   onChange,
   options,
-  placeholder = "Оберіть",
+  placeholder = t("Оберіть"),
   label,
   size = "md",
   invalid,

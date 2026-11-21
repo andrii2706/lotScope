@@ -10,13 +10,14 @@ interface Invite {
   company_name: string;
   role: string;
   email: string | null;
+  market?: string | null;
 }
 
 const WRONG_EMAIL = "Запрошення надіслано на іншу пошту. Вкажіть пошту, на яку прийшов лист.";
 
 async function findInvite(token: string): Promise<Invite | null> {
   const rows = await query<Invite>(
-    `select i.company_id, c.name as company_name, i.role, i.email from invites i join companies c on c.id = i.company_id
+    `select i.company_id, c.name as company_name, i.role, i.email, c.settings->>'market' as market from invites i join companies c on c.id = i.company_id
       where i.token_hash = $1 and i.used_at is null and i.expires_at > now()`,
     [sha256(token)],
   );
@@ -28,7 +29,7 @@ async function handleGet(request: Request) {
   const token = new URL(request.url).searchParams.get("token") || "";
   const invite = token ? await findInvite(token) : null;
   if (!invite) return fail(404, "Запрошення недійсне або прострочене.");
-  return Response.json({ companyName: invite.company_name, role: invite.role, email: invite.email ?? "" });
+  return Response.json({ companyName: invite.company_name, role: invite.role, email: invite.email ?? "", market: invite.market === "pl" ? "pl" : "ua" });
 }
 
 async function handlePost(request: Request) {

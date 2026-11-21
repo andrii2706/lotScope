@@ -1,22 +1,23 @@
 import type { AuctionInfo, AuctionName, Region } from "@/types/auction";
-export const AUCTIONS: Record<AuctionName, AuctionInfo> = {
+import { L } from "./i18n.ts";
+export const AUCTIONS: Record<AuctionName, AuctionInfo> = L({
   Copart: { label: "Copart США", short: "Copart", provider: "COPART", region: "us", color: "#2a6df4" },
   IAAI: { label: "IAAI США", short: "IAAI", provider: "IAAI", region: "us", color: "#d4352a" },
   CopartCanada: { label: "Copart Канада", short: "Copart CA", provider: "COPART CANADA", region: "ca", color: "#1f5bd1" },
   CopartFinland: { label: "Copart Фінляндія", short: "Copart FI", provider: "COPART FINLAND", region: "eu", color: "#1b8ea6" },
   Emirates: { label: "Emirates Auction (ОАЕ)", short: "Emirates", provider: "EMIRATES AUCTION", region: "ae", color: "#b8862b" },
   Other: { label: "Інший аукціон", short: "Інший", provider: "", region: "us", color: "#6b7280" },
-};
+});
 
 export const AUCTION_NAMES = Object.keys(AUCTIONS) as AuctionName[];
 export const SEARCHABLE: AuctionName[] = ["Copart", "IAAI", "CopartCanada", "CopartFinland", "Emirates"];
 
-export const REGION_LABEL: Record<Region, string> = {
+export const REGION_LABEL: Record<Region, string> = L({
   us: "США",
   ca: "Канада",
   eu: "Європа",
   ae: "ОАЕ",
-};
+});
 
 export function isAuctionName(v: unknown): v is AuctionName {
   return typeof v === "string" && (AUCTION_NAMES as string[]).includes(v);

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { t } from "@/lib/shared/i18n";
 
 export function useGoogleEnabled(): boolean {
   const [enabled, setEnabled] = useState(false);
@@ -17,7 +18,7 @@ export function useGoogleEnabled(): boolean {
   return enabled;
 }
 
-export function GoogleButton({ invite, next, label = "Продовжити з Google" }: { invite?: string; next?: string; label?: string }) {
+export function GoogleButton({ invite, next, label = t("Продовжити з Google") }: { invite?: string; next?: string; label?: string }) {
   const enabled = useGoogleEnabled();
   if (!enabled) return null;
   const params = new URLSearchParams();

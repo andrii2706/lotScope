@@ -85,6 +85,32 @@ const REGION_NOTE: Record<Region, string> = {
   ae: "Origin: United Arab Emirates (GCC spec). Look for sun and heat damage to plastics, rubber and paint, sand ingress and signs of flooding; GCC-spec parts can differ from European ones.",
 };
 
+const PL_LANGUAGE = `# Language
+
+Write every text field in Polish, in short, plain sentences without markdown, the way an experienced Polish body-shop estimator (blacharz-lakiernik, rzeczoznawca) talks to a client. Use standard Polish automotive terms:
+piasta, podłużnica, belka zderzaka (wzmocnienie), absorber zderzaka, pas przedni, próg, słupek B, słupek A, błotnik tylny (spawany), błotnik przedni, maska, klapa bagażnika, sanki (rama pomocnicza), wahacz, maglownica, geometria kół ("ustawić geometrię"), reflektor, lampa tylna, czujniki parkowania, radar aktywnego tempomatu, poduszka powietrzna, kurtyna powietrzna, pas bezpieczeństwa, deska rozdzielcza, kluczyk.
+Keep auction terms in English where Polish buyers use them as is: Run & Drive, Starts, Salvage, Clean title, Primary/Secondary Damage, Water/Flood.
+
+`;
+
+const UK_LANGUAGE = SYSTEM_PROMPT.slice(SYSTEM_PROMPT.indexOf("# Language\n"), SYSTEM_PROMPT.indexOf("If the photos do not show a car"));
+
+export function systemPrompt(market: "ua" | "pl" = "ua"): string {
+  if (market !== "pl") return SYSTEM_PROMPT;
+  return SYSTEM_PROMPT.replace("for a Ukrainian car-import business", "for a Polish car-import business")
+    .replace(
+      "7. Estimate the repair for Ukraine. Price each part at Ukrainian independent body-shop prices in US dollars,",
+      "7. Estimate the repair for Poland. Price each part at Polish independent body-shop prices, converted to US dollars,",
+    )
+    .replace(UK_LANGUAGE, PL_LANGUAGE);
+}
+
+const PARTS_PL: Record<AnalyzeRequest["pricing"]["partsPreference"], string> = {
+  used: "used original parts from dismantlers where sensible, priced at what Polish shops actually pay for them on allegro.pl and olx.pl, not at US or dealer prices",
+  aftermarket: "new aftermarket parts at typical Polish online-store prices",
+  oem: "new OEM parts at Polish dealer or online-store prices",
+};
+
 const PARTS: Record<AnalyzeRequest["pricing"]["partsPreference"], string> = {
   used: "used original parts from dismantlers where sensible, priced at what Ukrainian shops actually pay for them on allegro.pl (Poland, plus delivery) and olx.ua, not at US or dealer prices",
   aftermarket: "new aftermarket parts at typical Ukrainian and Polish online-store prices",
@@ -101,7 +127,7 @@ export function lessonsBlock(lessons: string[]): string {
   ].join("\n");
 }
 
-export function buildLotText(req: AnalyzeRequest): string {
+export function buildLotText(req: AnalyzeRequest, market: "ua" | "pl" = "ua"): string {
   const { lot, pricing } = req;
   const lines = [
     `Vehicle: ${lot.year} ${lot.make} ${lot.model}`.trim(),
@@ -124,7 +150,7 @@ export function buildLotText(req: AnalyzeRequest): string {
     "Repair pricing for this company:",
     `- body shop labor: ${pricing.laborRateUsd} USD per hour`,
     `- paint: ${pricing.paintPerPanelUsd} USD per panel`,
-    `- parts: ${PARTS[pricing.partsPreference]}`,
+    `- parts: ${(market === "pl" ? PARTS_PL : PARTS)[pricing.partsPreference]}`,
   ];
   return lines.filter((l, i, arr) => l !== "" || arr[i - 1] !== "").join("\n");
 }

@@ -4,6 +4,7 @@ import { CircleCheck, Copy, TriangleAlert } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui";
 import type { InviteResult } from "@/types/team";
+import { t, localeOf } from "@/lib/shared/i18n";
 
 export function InviteResultBox({ result, note }: { result: InviteResult; note?: string }) {
   const [copied, setCopied] = useState(false);
@@ -12,12 +13,12 @@ export function InviteResultBox({ result, note }: { result: InviteResult; note?:
       {result.emailed ? (
         <p className="flex items-start gap-2 text-sm font-semibold text-good">
           <CircleCheck className="mt-0.5 size-4 shrink-0" />
-          Запрошення надіслано на {result.email}. Посилання діє {result.days} днів.
+          {t("Запрошення надіслано на")} {result.email}{t(". Посилання діє")} {result.days} {t("днів.")}
         </p>
       ) : (
         <p className="flex items-start gap-2 text-sm font-semibold text-warn">
           <TriangleAlert className="mt-0.5 size-4 shrink-0" />
-          Лист на {result.email} надіслати не вдалося. Скопіюйте посилання і передайте його людині самостійно.
+          {t("Лист на")} {result.email} {t("надіслати не вдалося. Скопіюйте посилання і передайте його людині самостійно.")}
         </p>
       )}
       <div className="flex flex-wrap items-center gap-2">
@@ -29,11 +30,11 @@ export function InviteResultBox({ result, note }: { result: InviteResult; note?:
             setCopied(true);
           }}
         >
-          <Copy className="size-4" /> {copied ? "Скопійовано" : "Копіювати"}
+          <Copy className="size-4" /> {copied ? t("Скопійовано") : t("Копіювати")}
         </Button>
       </div>
       <p className="text-xs text-muted">
-        Посилання одноразове. Увійти по ньому можна лише з пошти {result.email}: паролем або через Google.{note ? ` ${note}` : ""}
+        {t("Посилання одноразове. Увійти по ньому можна лише з пошти")} {result.email}{t(": паролем або через Google.")}{note ? ` ${note}` : ""}
       </p>
     </div>
   );
@@ -49,24 +50,24 @@ export function PendingInvites({ invites, roleLabel, teamLabel, onCancel }: {
   return (
     <div className="mt-4">
       <div className="flex flex-wrap items-center gap-3 text-sm text-muted">
-        <span>Очікують прийняття: {invites.length}</span>
+        <span>{t("Очікують прийняття:")} {invites.length}</span>
         <button type="button" onClick={onCancel} className="font-semibold text-bad hover:underline">
-          Скасувати всі
+          {t("Скасувати всі")}
         </button>
       </div>
       <ul className="mt-2 divide-y divide-line rounded-xl border border-line">
         {invites.map((i, n) => (
           <li key={`${i.email}-${n}`} className="flex flex-wrap items-center gap-x-3 gap-y-0.5 px-3.5 py-2.5 text-sm">
-            <span className="min-w-0 flex-1 truncate font-medium">{i.email || "без пошти (посилання)"}</span>
+            <span className="min-w-0 flex-1 truncate font-medium">{i.email || t("без пошти (посилання)")}</span>
             <span className="text-muted">
               {roleLabel(i.role)}
               {teamLabel && i.team_id ? ` · ${teamLabel(i.team_id)}` : ""}
             </span>
-            <span className="text-xs text-faint">до {new Date(i.expires_at).toLocaleDateString("uk-UA")}</span>
+            <span className="text-xs text-faint">{t("до")} {new Date(i.expires_at).toLocaleDateString(localeOf())}</span>
           </li>
         ))}
       </ul>
-      <p className="mt-2 text-xs text-faint">Щоб надіслати лист ще раз, створіть запрошення на ту саму пошту: попереднє посилання перестане діяти.</p>
+      <p className="mt-2 text-xs text-faint">{t("Щоб надіслати лист ще раз, створіть запрошення на ту саму пошту: попереднє посилання перестане діяти.")}</p>
     </div>
   );
 }

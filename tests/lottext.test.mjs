@@ -40,7 +40,7 @@ test("lot description reads as sentences", () => {
     titleType: "Salvage (Mississippi)", runStatus: "run_drive", notes: "", bidUsd: 0, marketPriceUsd: 0,
   });
   assert.deepEqual(lines, [
-    "Бензин, 2.0 л, пробіг не вказано.",
+    "Бензин, 2,0 л, пробіг не вказано.",
     "Пошкодження за даними аукціону: правий бік.",
     "Документ Salvage (штат Міссісіпі): списане страховою після пошкодження.",
     "Заводиться і їде, подушки безпеки цілі.",

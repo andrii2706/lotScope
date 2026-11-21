@@ -5,6 +5,7 @@ import { inviteByEmail } from "@/lib/server/members";
 import { fail, readJson, text } from "@/lib/server/http";
 import { requireSuperadmin } from "@/lib/server/superadmin";
 import { route } from "@/lib/server/route";
+import { PL_DEFAULTS } from "@/lib/shared/defaults";
 
 async function handleGET(request: Request) {
   const admin = await requireSuperadmin();
@@ -36,7 +37,7 @@ async function handlePOST(request: Request) {
   const admin = await requireSuperadmin();
   if (admin instanceof Response) return admin;
   const body = await readJson<{
-    action?: string; companyId?: string; name?: string; email?: string;
+    action?: string; companyId?: string; name?: string; email?: string; market?: string;
   }>(request);
   const companyId = text(body?.companyId, 40);
   const labelOf = async (id: string) => (await query<{ name: string }>("select name from companies where id = $1", [id]))[0]?.name ?? id;
@@ -49,7 +50,8 @@ async function handlePOST(request: Request) {
       if (!email) return fail(400, "Вкажіть пошту адміністратора компанії.");
       if ((await query("select 1 from users where email = $1", [email])).length) return fail(409, "Людина з такою поштою вже має доступ до LotScope.");
       const id = newId();
-      await query("insert into companies (id, name, kind) values ($1, $2, 'team')", [id, name]);
+      const market = body.market === "pl" ? "pl" : "ua";
+      await query("insert into companies (id, name, kind, settings) values ($1, $2, 'team', $3::jsonb)", [id, name, JSON.stringify(market === "pl" ? PL_DEFAULTS : { market })]);
       const sent = await inviteByEmail({ request, companyId: id, role: "admin", createdBy: admin.id, inviterName: admin.name, email });
       await audit(admin, "company_create", name, "", id);
       if ("error" in sent) return fail(sent.status, sent.error);

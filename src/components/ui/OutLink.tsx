@@ -4,6 +4,7 @@ import { ClipboardCheck, ExternalLink } from "lucide-react";
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import type { OutboundLink } from "@/types/ui";
+import { t } from "@/lib/shared/i18n";
 
 async function copyText(text: string): Promise<boolean> {
   try {
@@ -39,10 +40,10 @@ export function OutLink({ link, className }: { link: OutboundLink; className?: s
   const onClick = () => {
     if (!link.copy) return;
     const value = link.copy;
-    const vpn = link.note ? " Сайт відкривається з України лише через VPN (США)." : "";
+    const vpn = link.note ? t(" Сайт відкривається з України лише через VPN (США).") : "";
     void copyText(value).then((ok) =>
       setNote(
-        (ok ? `VIN ${value} скопійовано. Вставте його в поле пошуку на сайті ${link.label}.` : `Вставте на сайті ${link.label} VIN ${value}.`) + vpn,
+        (ok ? t("VIN {v0} скопійовано. Вставте його в поле пошуку на сайті {v1}.", { v0: value, v1: link.label }) : t("Вставте на сайті {v0} VIN {v1}.", { v0: link.label, v1: value })) + vpn,
       ),
     );
   };

@@ -36,6 +36,8 @@ export interface LotInput {
   marketPriceUsd: number;
   marketSource?: string;
   eur1?: boolean;
+  usOrigin?: boolean;
+  marketPricePln?: number;
   plantCountry?: string;
 }
 
@@ -91,6 +93,7 @@ export interface Analysis {
 }
 
 export interface Settings {
+  market: "ua" | "pl";
   companyName: string;
   companyContact: string;
   logoDataUrl: string;
@@ -136,6 +139,17 @@ export interface Settings {
   partsPreference: "used" | "aftermarket" | "oem";
 
   subsistenceMinUah: number;
+
+  usdPln: number;
+  eurPln: number;
+  plClearance: "pl" | "de" | "nl";
+  plPortPln: number;
+  plTransportPln: number;
+  plRegistrationPln: number;
+  plCompanyFeePln: number;
+  plFirstServicePln: number;
+  plLaborPln: number;
+  plPaintPln: number;
 }
 
 export interface CostOverrides {
@@ -152,6 +166,7 @@ export interface CostOverrides {
   repairMinUsd?: number;
   repairMaxUsd?: number;
   marketPriceUsd?: number;
+  marketPricePln?: number;
 }
 
 export interface HistoryDoc {

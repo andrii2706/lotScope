@@ -5,24 +5,25 @@ import { OutLink } from "@/components/ui";
 import { usd } from "@/lib/shared/calc";
 import { mileageIssues, odometerReadings } from "@/lib/shared/vinhistory";
 import type { VinHistoryState } from "@/types/vin";
+import { t, localeOf } from "@/lib/shared/i18n";
 
 export function VinHistoryPanel({ state }: { state: VinHistoryState }) {
   if (state.status === "idle") {
     return (
       <p className="rounded-xl border border-dashed border-line2 px-4 py-3 text-sm text-muted">
-        Вкажіть VIN (або знайдіть лот угорі), і історія за VIN підтягнеться автоматично.
+        {t("Вкажіть VIN (або знайдіть лот угорі), і історія за VIN підтягнеться автоматично.")}
       </p>
     );
   }
   if (state.status === "loading") {
     return (
       <p className="flex items-center gap-2 rounded-xl border border-line2 bg-paper px-4 py-3 text-sm font-bold">
-        <LoaderCircle className="size-4.5 animate-spin text-accent-text" /> Шукаю історію за VIN {state.vin}…
+        <LoaderCircle className="size-4.5 animate-spin text-accent-text" /> {t("Шукаю історію за VIN")} {state.vin}…
       </p>
     );
   }
   if (state.status === "error") {
-    return <p className="rounded-xl border border-line2 bg-bad-bg px-4 py-3 text-sm font-semibold text-bad">{state.message}</p>;
+    return <p className="rounded-xl border border-line2 bg-bad-bg px-4 py-3 text-sm font-semibold text-bad">{t(state.message)}</p>;
   }
 
   const { response } = state;
@@ -38,7 +39,7 @@ export function VinHistoryPanel({ state }: { state: VinHistoryState }) {
     return (
       <div className="space-y-3">
         <p className="rounded-xl border border-line2 bg-warn-bg px-4 py-3 text-sm text-warn">
-          <span className="font-semibold">Автоматична історія зараз недоступна.</span> Відкрийте звіт за посиланням і додайте його нижче.
+          <span className="font-semibold">{t("Автоматична історія зараз недоступна.")}</span> {t("Відкрийте звіт за посиланням і додайте його нижче.")}
         </p>
         {linkRow}
       </div>
@@ -49,7 +50,7 @@ export function VinHistoryPanel({ state }: { state: VinHistoryState }) {
   if (!h) {
     return (
       <div className="space-y-3">
-        <p className="rounded-xl border border-line2 bg-paper px-4 py-3 text-sm text-muted">{response.message}</p>
+        <p className="rounded-xl border border-line2 bg-paper px-4 py-3 text-sm text-muted">{t(response.message ?? "")}</p>
         {linkRow}
       </div>
     );
@@ -60,7 +61,7 @@ export function VinHistoryPanel({ state }: { state: VinHistoryState }) {
   return (
     <div className="space-y-4">
       <p className="text-sm font-bold text-good">
-        Історію підтягнуто автоматично: {h.sources.join(", ")}. Вона піде в аналіз разом із фото.
+        {t("Історію підтягнуто автоматично:")} {h.sources.join(", ")}{t(". Вона піде в аналіз разом із фото.")}
       </p>
       {issues.map((i) => (
         <p key={i} className="flex gap-2 rounded-xl bg-bad-bg px-4 py-3 text-sm font-semibold text-bad">
@@ -70,17 +71,17 @@ export function VinHistoryPanel({ state }: { state: VinHistoryState }) {
       {h.auctionSales.length > 0 && (
         <div>
           <p className="mb-2 flex items-center gap-2 text-[13px] font-medium text-muted">
-            <Gavel className="size-3.5" /> На аукціонах
+            <Gavel className="size-3.5" /> {t("На аукціонах")}
           </p>
           <ul className="divide-y divide-line rounded-xl border border-line">
             {h.auctionSales.map((s, i) => (
               <li key={`${s.lotNumber}-${i}`} className="grid gap-1 px-4 py-2.5 text-sm sm:grid-cols-[6.5rem_minmax(0,1fr)_auto] sm:items-center sm:gap-4">
                 <span className="font-mono text-xs text-muted">{s.date.slice(0, 10) || "—"}</span>
                 <span className="min-w-0">
-                  <span className="font-bold">{s.auction || "Аукціон"}</span>
-                  {s.lotNumber && <span className="text-muted"> · лот {s.lotNumber}</span>}
+                  <span className="font-bold">{s.auction || t("Аукціон")}</span>
+                  {s.lotNumber && <span className="text-muted"> {t("· лот")} {s.lotNumber}</span>}
                   {s.damage && <span className="text-muted"> · {s.damage}</span>}
-                  {s.odometer > 0 && <span className="text-muted"> · {s.odometer.toLocaleString("uk-UA")} mi</span>}
+                  {s.odometer > 0 && <span className="text-muted"> · {s.odometer.toLocaleString(localeOf())} mi</span>}
                 </span>
                 <span className="font-bold">{s.priceUsd ? usd(s.priceUsd) : s.status || "—"}</span>
               </li>
@@ -91,7 +92,7 @@ export function VinHistoryPanel({ state }: { state: VinHistoryState }) {
       {(h.brands.length > 0 || h.titleRecords.length > 0) && (
         <div>
           <p className="mb-2 flex items-center gap-2 text-[13px] font-medium text-muted">
-            <ScrollText className="size-3.5" /> Титули та статуси (NMVTIS)
+            <ScrollText className="size-3.5" /> {t("Титули та статуси (NMVTIS)")}
           </p>
           <ul className="space-y-1.5 text-sm">
             {h.brands.map((b, i) => (
@@ -101,18 +102,18 @@ export function VinHistoryPanel({ state }: { state: VinHistoryState }) {
                 <span className="text-muted">{b.source}</span>
               </li>
             ))}
-            {h.titleRecords.map((t, i) => (
+            {h.titleRecords.map((item, i) => (
               <li key={`t-${i}`} className="flex gap-2">
-                <span className="w-24 shrink-0 font-mono text-xs text-muted">{t.date.slice(0, 10)}</span>
-                <span>Титул {t.state}</span>
-                {t.odometer > 0 && <span className="text-muted">{t.odometer.toLocaleString("uk-UA")} {t.unit}</span>}
+                <span className="w-24 shrink-0 font-mono text-xs text-muted">{item.date.slice(0, 10)}</span>
+                <span>{t("Титул")} {item.state}</span>
+                {item.odometer > 0 && <span className="text-muted">{item.odometer.toLocaleString(localeOf())} {item.unit}</span>}
               </li>
             ))}
           </ul>
         </div>
       )}
       {readings.length === 0 && h.brands.length === 0 && h.auctionSales.length === 0 && (
-        <p className="text-sm text-muted">Записів не знайдено.</p>
+        <p className="text-sm text-muted">{t("Записів не знайдено.")}</p>
       )}
       {linkRow}
     </div>

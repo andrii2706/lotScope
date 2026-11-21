@@ -8,6 +8,7 @@ import type { AdminOverview } from "@/types/admin";
 import { CreateCompany } from "@/components/admin/CreateCompany";
 import { CompanyTable } from "@/components/admin/CompanyTable";
 import { AdminLog } from "@/components/admin/AdminLog";
+import { t } from "@/lib/shared/i18n";
 
 type Tab = "teams" | "personal" | "log";
 
@@ -36,27 +37,27 @@ export default function AdminPage() {
       reload();
       return r;
     } catch (e) {
-      setError(userMessage(e, "Не вдалося."));
+      setError(userMessage(e, t("Не вдалося.")));
       return null;
     }
   }
 
   if (error && !data) {
     return (
-      <Notice tone="bad" title="Немає доступу">
+      <Notice tone="bad" title={t("Немає доступу")}>
         {error}
       </Notice>
     );
   }
-  if (!data) return <p className="text-sm text-muted">Завантажую…</p>;
-  const t = data.totals;
+  if (!data) return <p className="text-sm text-muted">{t("Завантажую…")}</p>;
+  const item = data.totals;
 
   return (
     <div>
-      <PageHeader title="Консоль супер адміна" description="Створюйте й видаляйте компанії та профілі. Журнал показує всі дії в сервісі." />
+      <PageHeader title={t("Консоль супер адміна")} description={t("Створюйте й видаляйте компанії та профілі. Журнал показує всі дії в сервісі.")} />
       {error && (
         <div className="mb-5">
-          <Notice tone="bad" title="Помилка">
+          <Notice tone="bad" title={t("Помилка")}>
             {error}
           </Notice>
         </div>
@@ -64,10 +65,10 @@ export default function AdminPage() {
 
       <section className="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
         {[
-          ["Компаній", t.teams],
-          ["Користувачів", t.users],
-          ["Аналізів за місяць", t.analyses],
-          ["Особистих акаунтів", t.personal],
+          [t("Компаній"), item.teams],
+          [t("Користувачів"), item.users],
+          [t("Аналізів за місяць"), item.analyses],
+          [t("Особистих акаунтів"), item.personal],
         ].map(([label, value]) => (
           <div key={label} className="card p-4">
             <p className="text-[13px] font-medium text-muted">{label}</p>
@@ -78,13 +79,13 @@ export default function AdminPage() {
 
       <Segmented
         className="mb-5 max-w-2xl"
-        label="Розділ"
+        label={t("Розділ")}
         value={tab}
         onChange={setTab}
         options={[
-          { value: "teams", label: "Компанії" },
-          { value: "personal", label: "Особисті" },
-          { value: "log", label: "Журнал" },
+          { value: "teams", label: t("Компанії") },
+          { value: "personal", label: t("Особисті") },
+          { value: "log", label: t("Журнал") },
         ]}
       />
 

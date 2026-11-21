@@ -2,6 +2,7 @@ import { DOT } from "./reportStyles";
 import { type ReactNode } from "react";
 import { TONE_TEXT } from "@/lib/shared/labels";
 import type { Tone } from "@/types/ui";
+import { t } from "@/lib/shared/i18n";
 
 export function Block({ title, children, id }: { title: string; children: ReactNode; id?: string }) {
   return (
@@ -31,7 +32,7 @@ export function Kpi({
       <p className={`mt-0.5 truncate text-[17px] font-semibold tracking-tight ${tone ? TONE_TEXT[tone] : ""}`}>{value}</p>
       {action ? (
         <button type="button" onClick={action} className="text-xs font-semibold text-accent-text hover:underline">
-          Вказати ринок
+          {t("Вказати ринок")}
         </button>
       ) : (
         <p className="truncate text-xs text-faint">{note}</p>

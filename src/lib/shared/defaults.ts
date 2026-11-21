@@ -1,6 +1,7 @@
 import type { LotInput, Settings } from "@/types/report";
 
 export const DEFAULT_SETTINGS: Settings = {
+  market: "ua",
   companyName: "",
   companyContact: "",
   logoDataUrl: "",
@@ -46,6 +47,26 @@ export const DEFAULT_SETTINGS: Settings = {
   partsPreference: "used",
 
   subsistenceMinUah: 3328,
+
+  usdPln: 3.7,
+  eurPln: 4.25,
+  plClearance: "pl",
+  plPortPln: 1850,
+  plTransportPln: 2200,
+  plRegistrationPln: 1500,
+  plCompanyFeePln: 2500,
+  plFirstServicePln: 1200,
+  plLaborPln: 150,
+  plPaintPln: 650,
+};
+
+export const PL_DEFAULTS: Partial<Settings> = {
+  market: "pl",
+  accentColor: "#ff7a1a",
+  oceanUsd: 1150,
+  caOceanUsd: 1700,
+  aeOceanUsd: 1600,
+  euOceanUsd: 900,
 };
 
 export const EMPTY_LOT: LotInput = {

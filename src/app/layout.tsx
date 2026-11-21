@@ -1,6 +1,12 @@
 import type { Metadata } from "next";
 import "@fontsource-variable/geist";
 import "@fontsource-variable/geist-mono";
+import "@fontsource/barlow/400.css";
+import "@fontsource/barlow/500.css";
+import "@fontsource/barlow/600.css";
+import "@fontsource/barlow/700.css";
+import "@fontsource/barlow-condensed/600.css";
+import "@fontsource/barlow-condensed/700.css";
 import { AppShell } from "@/components/layout/AppShell";
 import { THEME_BOOT_SCRIPT } from "@/lib/client/theme";
 import "@/app/globals.css";

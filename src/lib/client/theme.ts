@@ -24,4 +24,4 @@ export function useResolvedTheme(choice: ThemeChoice): "dark" | "light" {
   return theme;
 }
 
-export const THEME_BOOT_SCRIPT = `try{var s=JSON.parse(localStorage.getItem("lotscope.prefs.v1")||"{}");var t=s.theme||"light";if(t==="system"){t=matchMedia("${QUERY}").matches?"light":"dark"}document.documentElement.dataset.theme=t==="dark"?"dark":"light"}catch(e){document.documentElement.dataset.theme="light"}`;
+export const THEME_BOOT_SCRIPT = `try{var s=JSON.parse(localStorage.getItem("lotscope.prefs.v1")||"{}");var t=s.theme||"light";if(t==="system"){t=matchMedia("${QUERY}").matches?"light":"dark"}document.documentElement.dataset.theme=t==="dark"?"dark":"light"}catch(e){document.documentElement.dataset.theme="light"}try{var l=localStorage.getItem("lotscope.lang");if(l==="pl"){document.documentElement.dataset.market="pl";document.documentElement.lang="pl"}}catch(e){}`;

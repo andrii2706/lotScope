@@ -1,4 +1,5 @@
-export const ACTION_LABEL: Record<string, string> = {
+import { L } from "./i18n.ts";
+export const ACTION_LABEL: Record<string, string> = L({
   login: "Вхід в акаунт",
   password_reset_request: "Запит на скидання пароля",
   password_reset: "Пароль змінено через лист",
@@ -36,4 +37,4 @@ export const ACTION_LABEL: Record<string, string> = {
   invoice_paid: "Оплату за рахунком підтверджено",
   invoice_cancel: "Рахунок скасовано",
   payment: "Оплата карткою",
-};
+});

@@ -1,5 +1,6 @@
 "use client";
 import type { PreparedPhoto } from "@/types/system";
+import { t } from "../shared/i18n.ts";
 
 function load(file: File): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
@@ -11,7 +12,7 @@ function load(file: File): Promise<HTMLImageElement> {
     };
     img.onerror = () => {
       URL.revokeObjectURL(url);
-      reject(new Error(`Не вдалося відкрити ${file.name}`));
+      reject(new Error(t("Не вдалося відкрити {v0}", { v0: file.name })));
     };
     img.src = url;
   });
@@ -21,7 +22,7 @@ function loadUrl(src: string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
     const img = new Image();
     img.onload = () => resolve(img);
-    img.onerror = () => reject(new Error("Не вдалося обробити фото"));
+    img.onerror = () => reject(new Error(t("Не вдалося обробити фото")));
     img.src = src;
   });
 }
@@ -32,7 +33,7 @@ function render(img: HTMLImageElement, maxSide: number, quality: number): string
   canvas.width = Math.max(1, Math.round(img.naturalWidth * scale));
   canvas.height = Math.max(1, Math.round(img.naturalHeight * scale));
   const ctx = canvas.getContext("2d");
-  if (!ctx) throw new Error("Браузер не підтримує обробку зображень");
+  if (!ctx) throw new Error(t("Браузер не підтримує обробку зображень"));
   ctx.fillStyle = "#fff";
   ctx.fillRect(0, 0, canvas.width, canvas.height);
   ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
@@ -80,7 +81,7 @@ export async function fileToLogo(file: File): Promise<string> {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
       reader.onload = () => resolve(String(reader.result));
-      reader.onerror = () => reject(new Error("Не вдалося прочитати файл"));
+      reader.onerror = () => reject(new Error(t("Не вдалося прочитати файл")));
       reader.readAsDataURL(file);
     });
   }

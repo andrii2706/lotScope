@@ -2,6 +2,7 @@ import { audit } from "@/lib/server/audit";
 import { newToken, normalizeEmail, sha256 } from "@/lib/server/auth";
 import { dbConfigured, dbMissing, query } from "@/lib/server/db";
 import { resetEmail, sendMail } from "@/lib/server/mail";
+import { langOf } from "@/lib/shared/i18n";
 import { appUrl, fail, readJson } from "@/lib/server/http";
 import { route } from "@/lib/server/route";
 
@@ -35,8 +36,8 @@ async function handlePost(request: Request) {
     return fail(429, "Забагато запитів на скидання пароля. Спробуйте через годину.");
   }
 
-  const rows = await query<{ id: string; name: string; role: string; company_id: string; active: boolean }>(
-    "select id, name, role, company_id, active from users where email = $1",
+  const rows = await query<{ id: string; name: string; role: string; company_id: string; active: boolean; market: string | null }>(
+    "select u.id, u.name, u.role, u.company_id, u.active, c.settings->>'market' as market from users u left join companies c on c.id = u.company_id where u.email = $1",
     [email],
   );
   const user = rows[0];
@@ -49,7 +50,7 @@ async function handlePost(request: Request) {
     [sha256(token), user.id, TTL_MINUTES],
   );
   const link = `${appUrl(request)}/reset-password?token=${encodeURIComponent(token)}`;
-  const sent = await sendMail({ to: email, ...resetEmail(user.name, link, TTL_MINUTES) });
+  const sent = await sendMail({ to: email, ...resetEmail(user.name, link, TTL_MINUTES, langOf(user.market)) });
   await audit({ id: user.id, name: user.name, role: user.role, companyId: user.company_id }, "password_reset_request", email, sent ? "лист надіслано" : "лист не надіслано");
   return Response.json(DONE);
 }

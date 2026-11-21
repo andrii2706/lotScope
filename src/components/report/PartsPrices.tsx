@@ -2,23 +2,25 @@
 
 import { ExternalLink, LoaderCircle, PackageSearch } from "lucide-react";
 import { useState } from "react";
-import { usd } from "@/lib/shared/calc";
+import { money, moneyOf, moneyRange } from "@/lib/shared/calc";
+import { pricingSettings } from "@/lib/shared/calcPl";
 import { partRange, revisedRepair, toUsd } from "@/lib/shared/partsPricing";
 import { updateReport } from "@/lib/client/store";
 import { userMessage, responseMessage } from "@/lib/shared/errors";
 import type { PartsSearch } from "@/types/pricing";
 import type { Report, Settings } from "@/types/report";
+import { t, L, localeOf } from "@/lib/shared/i18n";
 
-const CONDITION = { used: "б/у", new: "нова", unknown: "" } as const;
+const CONDITION = L({ used: "б/у", new: "нова", unknown: "" });
 
-function money(price: number, currency: string) {
-  const sign = currency === "PLN" ? "zł" : currency === "UAH" ? "грн" : currency === "EUR" ? "€" : "$";
-  return `${Math.round(price).toLocaleString("uk-UA")} ${sign}`;
+function priceText(price: number, currency: string) {
+  const sign = currency === "PLN" ? "zł" : currency === "UAH" ? t("грн") : currency === "EUR" ? "€" : "$";
+  return `${Math.round(price).toLocaleString(localeOf())} ${sign}`;
 }
 
 export function PartsPrices({
   report,
-  settings,
+  settings: rawSettings,
   canRun,
   canApply,
   onApply,
@@ -29,6 +31,8 @@ export function PartsPrices({
   canApply: boolean;
   onApply: (minUsd: number, maxUsd: number) => void;
 }) {
+  const m = moneyOf(rawSettings);
+  const settings = pricingSettings(rawSettings);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const replace = report.analysis.damagedParts.filter((p) => p.action === "replace");
@@ -50,10 +54,10 @@ export function PartsPrices({
         }),
       });
       const data = (await res.json().catch(() => null)) as { partsSearch?: PartsSearch; error?: string } | null;
-      if (!res.ok || !data?.partsSearch) throw new Error(responseMessage("/api/parts", res.status, data, "Не вдалося знайти ціни запчастин."));
+      if (!res.ok || !data?.partsSearch) throw new Error(responseMessage("/api/parts", res.status, data, t("Не вдалося знайти ціни запчастин.")));
       updateReport(report.id, { partsSearch: data.partsSearch });
     } catch (e) {
-      setError(userMessage(e, "Не вдалося знайти ціни запчастин."));
+      setError(userMessage(e, t("Не вдалося знайти ціни запчастин.")));
     } finally {
       setBusy(false);
     }
@@ -66,11 +70,11 @@ export function PartsPrices({
     <section className="no-print mt-9">
       <div className="mb-3.5 flex flex-wrap items-end gap-3">
         <div className="mr-auto">
-          <h2 className="text-xl font-semibold tracking-tight">Ціни запчастин: Allegro та OLX</h2>
+          <h2 className="text-xl font-semibold tracking-tight">{t("Ціни запчастин: Allegro та OLX")}</h2>
           <p className="mt-0.5 text-sm text-muted">
             {search
-              ? `Перевірено ${new Date(search.checkedAt).toLocaleString("uk-UA", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}`
-              : `Деталей під заміну: ${replace.length}. Знайдемо актуальні оголошення й перерахуємо вилку ремонту.`}
+              ? t("Перевірено {v0}", { v0: new Date(search.checkedAt).toLocaleString(localeOf(), { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }) })
+              : t("Деталей під заміну: {v0}. Знайдемо актуальні оголошення й перерахуємо вилку ремонту.", { v0: replace.length })}
           </p>
         </div>
         {canRun && (
@@ -81,14 +85,14 @@ export function PartsPrices({
             className="inline-flex h-10 items-center gap-2 rounded-xl border border-line2 bg-surface px-4 text-sm font-bold transition hover:bg-panel2 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {busy ? <LoaderCircle className="size-4 animate-spin" /> : <PackageSearch className="size-4 text-accent-text" />}
-            {busy ? "Шукаю на Allegro та OLX…" : search ? "Оновити ціни" : "Знайти ціни деталей"}
+            {busy ? t("Шукаю на Allegro та OLX…") : search ? t("Оновити ціни") : t("Знайти ціни деталей")}
           </button>
         )}
       </div>
 
       {busy && (
         <p role="status" className="mb-3 rounded-xl bg-panel2 px-4 py-3 text-sm text-muted">
-          Шукаю оголошення для кожної деталі. Це може тривати до хвилини.
+          {t("Шукаю оголошення для кожної деталі. Це може тривати до хвилини.")}
         </p>
       )}
       {error && (
@@ -107,17 +111,17 @@ export function PartsPrices({
                 <li key={p.part} className="py-4">
                   <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1">
                     <p className="mr-auto font-bold">{p.part}</p>
-                    {ai && <span className="text-xs text-muted">оцінка ШІ {Math.round(ai.costMinUsd).toLocaleString("uk-UA")}–{usd(ai.costMaxUsd)}</span>}
+                    {ai && <span className="text-xs text-muted">{t("оцінка ШІ")} {moneyRange(ai.costMinUsd, ai.costMaxUsd, m)}</span>}
                     <span className="text-[15px] font-semibold">
-                      {r.found ? `${Math.round(r.minUsd).toLocaleString("uk-UA")}–${usd(r.maxUsd)}` : "не знайдено"}
+                      {r.found ? moneyRange(r.minUsd, r.maxUsd, m) : t("не знайдено")}
                     </span>
                   </div>
                   {r.found && (
                     <p className="mt-0.5 text-xs text-muted">
-                      деталь {Math.round(r.partMinUsd).toLocaleString("uk-UA")}–{usd(r.partMaxUsd)}
-                      {p.offers.some((o) => o.source === "Allegro") ? ` (з доставкою з Польщі ${usd(settings.partsDeliveryPlUsd)})` : ""}
-                      {` + роботи ${p.laborHoursMin}–${p.laborHoursMax} год`}
-                      {p.paint ? ` + фарбування ${usd(settings.paintPerPanelUsd)}` : ""}
+                      {t("деталь")} {moneyRange(r.partMinUsd, r.partMaxUsd, m)}
+                      {p.offers.some((o) => o.source === "Allegro") ? t(" (з доставкою з Польщі {v0})", { v0: money(settings.partsDeliveryPlUsd, m) }) : ""}
+                      {t(" + роботи {v0}–{v1} год", { v0: p.laborHoursMin, v1: p.laborHoursMax })}
+                      {p.paint ? t(" + фарбування {v0}", { v0: money(settings.paintPerPanelUsd, m) }) : ""}
                     </p>
                   )}
                   {p.offers.length > 0 && (
@@ -128,12 +132,12 @@ export function PartsPrices({
                             {o.source}
                           </span>
                           <a href={o.url} target="_blank" rel="noopener noreferrer" className="inline-flex min-w-0 max-w-full items-center gap-1 font-semibold hover:underline">
-                            <span className="truncate">{o.title || "Оголошення"}</span>
+                            <span className="truncate">{o.title || t("Оголошення")}</span>
                             <ExternalLink className="size-3 shrink-0" />
                           </a>
                           <span className="ml-auto whitespace-nowrap font-bold">
-                            {money(o.price, o.currency)}
-                            {o.currency !== "USD" && <span className="font-semibold text-muted"> ≈ {usd(toUsd(o.price, o.currency, settings))}</span>}
+                            {priceText(o.price, o.currency)}
+                            {o.currency !== "USD" && <span className="font-semibold text-muted"> ≈ {money(toUsd(o.price, o.currency, settings), m)}</span>}
                           </span>
                           {CONDITION[o.condition] && <span className="text-xs text-muted">{CONDITION[o.condition]}</span>}
                         </li>
@@ -150,10 +154,10 @@ export function PartsPrices({
             <div className="mt-3 flex flex-wrap items-center gap-3 rounded-xl border border-accent-text/30 bg-accent-text/[0.06] p-4">
               <p className="mr-auto text-sm">
                 <span className="font-semibold">
-                  Ремонт за знайденими цінами: {Math.round(revised.minUsd).toLocaleString("uk-UA")}–{usd(revised.maxUsd)}
+                  {t("Ремонт за знайденими цінами:")} {moneyRange(revised.minUsd, revised.maxUsd, m)}
                 </span>
                 <span className="block text-xs text-muted">
-                  Оцінка ШІ була {Math.round(report.analysis.repairMinUsd).toLocaleString("uk-UA")}–{usd(report.analysis.repairMaxUsd)}. Замінено ціни {revised.replaced} з {replace.length} деталей, решта лишилась як в оцінці.
+                  {t("Оцінка ШІ була")} {moneyRange(report.analysis.repairMinUsd, report.analysis.repairMaxUsd, m)}{t(". Замінено ціни")} {revised.replaced} {t("з")} {replace.length} {t("деталей, решта лишилась як в оцінці.")}
                 </span>
               </p>
               {canApply && (
@@ -162,14 +166,13 @@ export function PartsPrices({
                   onClick={() => onApply(revised.minUsd, revised.maxUsd)}
                   className="inline-flex h-10 items-center rounded-xl bg-accent px-4 text-sm font-semibold text-accent-ink transition hover:brightness-110"
                 >
-                  Застосувати до розрахунку
+                  {t("Застосувати до розрахунку")}
                 </button>
               )}
             </div>
           )}
           <p className="mt-2 text-xs text-faint">
-            Оголошення знайдено автоматичним пошуком; ціни й наявність змінюються. Перед покупкою перевірте сумісність деталі за VIN
-            (американська й європейська версії можуть відрізнятися). Злоті та гривні переведено за курсом НБУ або з налаштувань.
+            {t("Оголошення знайдено автоматичним пошуком; ціни й наявність змінюються. Перед покупкою перевірте сумісність деталі за VIN (американська й європейська версії можуть відрізнятися). Злоті та гривні переведено за курсом НБУ або з налаштувань.")}
           </p>
         </>
       )}

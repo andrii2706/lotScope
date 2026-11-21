@@ -8,14 +8,15 @@ import { Button, Notice, OutLink } from "@/components/ui";
 import { FEATURES } from "@/config/features";
 import { userMessage, responseMessage } from "@/lib/shared/errors";
 import type { LotLookupResponse } from "@/types/auction";
+import { t, L, localeOf } from "@/lib/shared/i18n";
 
-const GROUPS: { key: "auction" | "history" | "web"; label: string }[] = [
+const GROUPS: { key: "auction" | "history" | "web"; label: string }[] = L([
   { key: "auction", label: "Аукціони" },
   { key: "history", label: "Історія за VIN" },
   { key: "web", label: "Інше" },
-];
+]);
 
-const usd = (n: number) => `$${Math.round(n).toLocaleString("uk-UA")}`;
+const usd = (n: number) => `$${Math.round(n).toLocaleString(localeOf())}`;
 
 export function LotFinder({
   onFound,
@@ -55,13 +56,13 @@ export function LotFinder({
         body: JSON.stringify({ query: input }),
       });
       const data = (await res.json().catch(() => null)) as (LotLookupResponse & { error?: string }) | null;
-      if (!res.ok || !data || data.error) throw new Error(responseMessage("/api/lot", res.status, data, "Не вдалося знайти лот."));
+      if (!res.ok || !data || data.error) throw new Error(responseMessage("/api/lot", res.status, data, t("Не вдалося знайти лот.")));
       setResult(data);
       if (data.found) {
         await onFound(data);
       }
     } catch (err) {
-      setError(userMessage(err, "Не вдалося знайти лот."));
+      setError(userMessage(err, t("Не вдалося знайти лот.")));
     } finally {
       setBusy(false);
     }
@@ -104,9 +105,9 @@ export function LotFinder({
           <Search className="size-4.5" strokeWidth={2.4} />
         </span>
         <div>
-          <h2 className="text-lg font-semibold leading-tight tracking-tight">Знайти лот</h2>
+          <h2 className="text-lg font-semibold leading-tight tracking-tight">{t("Знайти лот")}</h2>
           <p className="mt-1 text-sm text-muted">
-            {FEATURES.vinHistoryAuto ? "Вставте посилання Copart чи IAAI, номер лота або VIN: дані, фото та історія за VIN підтягнуться самі." : "Вставте посилання Copart чи IAAI, номер лота або VIN: дані й фото лота підтягнуться самі."}
+            {FEATURES.vinHistoryAuto ? t("Вставте посилання Copart чи IAAI, номер лота або VIN: дані, фото та історія за VIN підтягнуться самі.") : t("Вставте посилання Copart чи IAAI, номер лота або VIN: дані й фото лота підтягнуться самі.")}
           </p>
         </div>
       </header>
@@ -114,8 +115,8 @@ export function LotFinder({
       <form onSubmit={search} noValidate className="flex flex-col gap-2.5 sm:flex-row">
         <input
           className="control flex-1"
-          placeholder="https://www.copart.com/lot/… або WBA8Z9C5…"
-          aria-label="Посилання, номер лота або VIN"
+          placeholder={t("https://www.copart.com/lot/… або WBA8Z9C5…")}
+          aria-label={t("Посилання, номер лота або VIN")}
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           onPaste={onPaste}
@@ -123,13 +124,13 @@ export function LotFinder({
         />
         <Button type="submit" disabled={disabled || busy || !query.trim()}>
           {busy ? <LoaderCircle className="size-4.5 animate-spin" /> : <Search className="size-4.5" />}
-          {busy ? "Шукаю…" : "Знайти"}
+          {busy ? t("Шукаю…") : t("Знайти")}
         </Button>
       </form>
 
       {error && (
         <div className="mt-4">
-          <Notice tone="bad" title="Не знайдено">
+          <Notice tone="bad" title={t("Не знайдено")}>
             {error}
           </Notice>
         </div>
@@ -138,33 +139,33 @@ export function LotFinder({
       {result && (
         <div className="mt-5 space-y-4">
           {result.found ? (
-            <Notice tone="good" title={car ? `Знайдено: ${car}` : "Лот знайдено"}>
-              Поля форми заповнено
-              {result.photos && result.photos.length > 0 ? `, додано фото: ${result.photos.length}` : ", фото не вдалося завантажити"}
-              . Перевірте дані перед аналізом.
+            <Notice tone="good" title={car ? t("Знайдено: {v0}", { v0: car }) : t("Лот знайдено")}>
+              {t("Поля форми заповнено")}
+              {result.photos && result.photos.length > 0 ? t(", додано фото: {v0}", { v0: result.photos.length }) : t(", фото не вдалося завантажити")}
+              {t(". Перевірте дані перед аналізом.")}
               {result.lastSale && result.lastSale.priceUsd > 0 && (
-                <> Останній продаж: {usd(result.lastSale.priceUsd)}{result.lastSale.date ? `, ${result.lastSale.date.slice(0, 10)}` : ""}.</>
+                <> {t("Останній продаж:")} {usd(result.lastSale.priceUsd)}{result.lastSale.date ? `, ${result.lastSale.date.slice(0, 10)}` : ""}.</>
               )}
             </Notice>
           ) : !result.configured ? (
-            <Notice tone="warn" title="Автозаповнення недоступне">
-              Відкрийте лот за посиланнями нижче й перенесіть дані вручну.
+            <Notice tone="warn" title={t("Автозаповнення недоступне")}>
+              {t("Відкрийте лот за посиланнями нижче й перенесіть дані вручну.")}
             </Notice>
           ) : (
-            <Notice tone="warn" title="Не знайдено автоматично">
-              {result.message || "Цей лот не знайдено."}
+            <Notice tone="warn" title={t("Не знайдено автоматично")}>
+              {result.message ? t(result.message) : t("Цей лот не знайдено.")}
             </Notice>
           )}
 
           {stats && (
             <div className="rounded-xl border border-line2 bg-paper p-4">
               <p className="text-[13px] font-medium text-muted">
-                Продажі схожих лотів · {result.comparables!.query}
+                {t("Продажі схожих лотів ·")} {result.comparables!.query}
               </p>
               <div className="mt-2 flex flex-wrap items-baseline gap-x-6 gap-y-1">
                 <p className="text-2xl font-semibold tracking-tight">{usd(stats.medianUsd)}</p>
                 <p className="text-sm text-muted">
-                  середина {usd(stats.p25Usd)}–{usd(stats.p75Usd)} · продажів: {stats.count}
+                  {t("середина")} {usd(stats.p25Usd)}–{usd(stats.p75Usd)} {t("· продажів:")} {stats.count}
                 </p>
               </div>
             </div>
@@ -192,7 +193,7 @@ export function LotFinder({
           )}
           {result.links.some((l) => l.group === "history") && (
             <p className="text-xs text-faint">
-              Під час кліку VIN копіюється автоматично: вставте його в поле на сайті. carVertical і ClearVIN працюють з України. Carfax і AutoCheck з України не відкриваються, лише через VPN (США). {FEATURES.vinHistoryAuto ? "Історія за VIN у кроці 5 форми підтягується автоматично і без цих сайтів." : "Завантажений звіт додайте в кроці 5 форми: ШІ врахує його, а файл збережеться у звіті."}
+              {t("Під час кліку VIN копіюється автоматично: вставте його в поле на сайті. carVertical і ClearVIN працюють з України. Carfax і AutoCheck з України не відкриваються, лише через VPN (США).")} {FEATURES.vinHistoryAuto ? t("Історія за VIN у кроці 5 форми підтягується автоматично і без цих сайтів.") : t("Завантажений звіт додайте в кроці 5 форми: ШІ врахує його, а файл збережеться у звіті.")}
             </p>
           )}
         </div>

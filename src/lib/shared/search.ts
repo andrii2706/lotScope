@@ -1,6 +1,7 @@
 import { extractPhotos, isSoldStatus, newestHistory, priceStats, salePricesFrom } from "./auction.ts";
 import { AUCTIONS, auctionFromProvider, auctionLotUrl } from "./auctions.ts";
 import type { ActiveLot, SearchFilters, AuctionName, PriceStats } from "@/types/auction";
+import { t } from "./i18n.ts";
 
 export const DAMAGE_FILTERS = [
   "Front End",
@@ -168,6 +169,6 @@ export function auctionSearchLinks(f: Pick<SearchFilters, "make" | "model" | "au
     CopartFinland: `https://www.copart.fi/en/lotSearchResults?free=true&query=${q}`,
   };
   const wanted = f.auction === "all" ? (["Copart", "IAAI"] as AuctionName[]) : [f.auction];
-  for (const a of wanted) if (site[a]) links.push({ label: `Шукати на ${AUCTIONS[a].label}`, href: site[a] });
+  for (const a of wanted) if (site[a]) links.push({ label: t("Шукати на {v0}", { v0: AUCTIONS[a].label }), href: site[a] });
   return links;
 }

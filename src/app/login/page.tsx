@@ -7,6 +7,7 @@ import { useEffect, useState } from "react";
 import { useMe } from "@/lib/client/me";
 import { GOOGLE_ERRORS } from "@/config/auth";
 import { safeNext } from "@/lib/client/navigation";
+import { t } from "@/lib/shared/i18n";
 
 export default function LoginPage() {
   const me = useMe();
@@ -36,42 +37,42 @@ export default function LoginPage() {
     <>
       {reset && (
         <div className="mx-auto max-w-md">
-          <Notice tone="good" title="Пароль змінено">
-            Увійдіть з новим паролем.
+          <Notice tone="good" title={t("Пароль змінено")}>
+            {t("Увійдіть з новим паролем.")}
           </Notice>
         </div>
       )}
       {googleError && (
         <div className="mx-auto max-w-md">
-          <Notice tone="bad" title="Вхід не виконано">
+          <Notice tone="bad" title={t("Вхід не виконано")}>
             {googleError}
           </Notice>
         </div>
       )}
       {me.status === "ready" && me.dbError && (
         <div className="mx-auto max-w-md">
-          <Notice tone="bad" title="Вхід тимчасово недоступний">
+          <Notice tone="bad" title={t("Вхід тимчасово недоступний")}>
             {me.dbError}
           </Notice>
         </div>
       )}
       <AuthForm
-        title="Вхід"
-        description="Увійдіть у кабінет вашої компанії."
+        title={t("Вхід")}
+        description={t("Увійдіть у кабінет вашої компанії.")}
         endpoint="/api/auth/login"
-        submitLabel="Увійти"
+        submitLabel={t("Увійти")}
         fields={[
           { name: "email", label: "Email", type: "email", autoComplete: "email" },
-          { name: "password", label: "Пароль", type: "password", autoComplete: "current-password" },
+          { name: "password", label: t("Пароль"), type: "password", autoComplete: "current-password" },
         ]}
-        social={<GoogleButton next={safeNext()} label="Увійти через Google" />}
+        social={<GoogleButton next={safeNext()} label={t("Увійти через Google")} />}
         onDone={() => goTo(safeNext())}
         footer={
           <>
-            <AuthLink href="/forgot-password">Забули пароль?</AuthLink>
+            <AuthLink href="/forgot-password">{t("Забули пароль?")}</AuthLink>
             <span className="mt-2 block">
-              Доступ до LotScope видається компаніям за запрошенням.
-              {contact ? <> Щоб підключити компанію, напишіть: <span className="font-bold text-ink">{contact}</span></> : " Попросіть адміністратора вашої компанії надіслати запрошення."}
+              {t("Доступ до LotScope видається компаніям за запрошенням.")}
+              {contact ? <> {t("Щоб підключити компанію, напишіть:")} <span className="font-bold text-ink">{contact}</span></> : t(" Попросіть адміністратора вашої компанії надіслати запрошення.")}
             </span>
           </>
         }

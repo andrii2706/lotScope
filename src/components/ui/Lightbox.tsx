@@ -2,6 +2,7 @@
 
 import { ChevronLeft, ChevronRight, X } from "lucide-react";
 import { useEffect } from "react";
+import { t } from "@/lib/shared/i18n";
 
 export function Lightbox({
   images,
@@ -37,26 +38,26 @@ export function Lightbox({
     <div
       role="dialog"
       aria-modal="true"
-      aria-label="Перегляд фото"
+      aria-label={t("Перегляд фото")}
       className="no-print fixed inset-0 z-50 grid place-items-center bg-black/90 p-4"
       onClick={onClose}
     >
       <img
         src={images[index]}
-        alt={`Фото ${index + 1}`}
+        alt={t("Фото {v0}", { v0: index + 1 })}
         referrerPolicy="no-referrer"
         onClick={(e) => e.stopPropagation()}
         className="max-h-[88vh] max-w-full rounded-lg object-contain"
       />
-      <button type="button" aria-label="Закрити" onClick={onClose} className="absolute right-4 top-4 grid size-11 place-items-center rounded-full bg-scrim text-white backdrop-blur hover:bg-black/80">
+      <button type="button" aria-label={t("Закрити")} onClick={onClose} className="absolute right-4 top-4 grid size-11 place-items-center rounded-full bg-scrim text-white backdrop-blur hover:bg-black/80">
         <X className="size-5" />
       </button>
       {count > 1 && (
         <>
-          <button type="button" aria-label="Попереднє фото" onClick={(e) => { e.stopPropagation(); onIndex((index - 1 + count) % count); }} className={`${nav} left-3`}>
+          <button type="button" aria-label={t("Попереднє фото")} onClick={(e) => { e.stopPropagation(); onIndex((index - 1 + count) % count); }} className={`${nav} left-3`}>
             <ChevronLeft className="size-6" />
           </button>
-          <button type="button" aria-label="Наступне фото" onClick={(e) => { e.stopPropagation(); onIndex((index + 1) % count); }} className={`${nav} right-3`}>
+          <button type="button" aria-label={t("Наступне фото")} onClick={(e) => { e.stopPropagation(); onIndex((index + 1) % count); }} className={`${nav} right-3`}>
             <ChevronRight className="size-6" />
           </button>
           <span className="absolute bottom-4 left-1/2 -translate-x-1/2 rounded-full bg-scrim px-3 py-1 text-sm font-bold text-white backdrop-blur">

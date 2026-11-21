@@ -1,13 +1,14 @@
 import type { ActiveLot } from "@/types/auction";
+import { t, localeOf } from "./i18n.ts";
 
 export function auctionTime(iso: string): { date: string; left: string } {
-  const t = Date.parse(iso);
-  if (!Number.isFinite(t)) return { date: "дата ще не призначена", left: "" };
-  const date = new Date(t).toLocaleString("uk-UA", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
-  const diff = t - Date.now();
-  if (diff <= 0) return { date, left: "торги йдуть" };
+  const item = Date.parse(iso);
+  if (!Number.isFinite(item)) return { date: t("дата ще не призначена"), left: "" };
+  const date = new Date(item).toLocaleString(localeOf(), { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
+  const diff = item - Date.now();
+  if (diff <= 0) return { date, left: t("торги йдуть") };
   const hours = Math.floor(diff / 3600_000);
-  const left = hours < 24 ? `через ${hours} год ${Math.floor((diff % 3600_000) / 60_000)} хв` : `через ${Math.floor(hours / 24)} дн.`;
+  const left = hours < 24 ? t("через {v0} год {v1} хв", { v0: hours, v1: Math.floor((diff % 3600_000) / 60_000) }) : t("через {v0} дн.", { v0: Math.floor(hours / 24) });
   return { date, left };
 }
 

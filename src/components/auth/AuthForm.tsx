@@ -1,12 +1,13 @@
 "use client";
 
-import { LoaderCircle } from "lucide-react";
+import { Eye, EyeOff, LoaderCircle } from "lucide-react";
 import Link from "next/link";
 import { useState, type ReactNode } from "react";
 import { refreshMe } from "@/lib/client/me";
 import { Button, Field, Notice } from "@/components/ui";
 import { userMessage, responseMessage } from "@/lib/shared/errors";
 import type { AuthField } from "@/types/ui";
+import { t } from "@/lib/shared/i18n";
 
 export function AuthForm({
   title,
@@ -33,13 +34,14 @@ export function AuthForm({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [invalid, setInvalid] = useState<Record<string, string>>({});
+  const [visible, setVisible] = useState<Record<string, boolean>>({});
 
   function validate(): boolean {
     const next: Record<string, string> = {};
     for (const f of fields) {
       const v = (values[f.name] ?? "").trim();
-      if (!v) next[f.name] = `Заповніть поле «${f.label}».`;
-      else if (f.type === "email" && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)) next[f.name] = "Перевірте email: схоже, в ньому помилка.";
+      if (!v) next[f.name] = t("Заповніть поле «{v0}».", { v0: f.label });
+      else if (f.type === "email" && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)) next[f.name] = t("Перевірте email: схоже, в ньому помилка.");
     }
     setInvalid(next);
     const first = fields.find((f) => next[f.name]);
@@ -60,11 +62,11 @@ export function AuthForm({
         signal: AbortSignal.timeout(25_000),
       });
       const data = (await res.json().catch(() => null)) as { error?: string } | null;
-      if (!res.ok || data?.error) throw new Error(responseMessage(endpoint, res.status, data, "Не вдалося. Спробуйте ще раз."));
+      if (!res.ok || data?.error) throw new Error(responseMessage(endpoint, res.status, data, t("Не вдалося. Спробуйте ще раз.")));
       await refreshMe();
       onDone();
     } catch (err) {
-      setError(userMessage(err, "Не вдалося. Спробуйте ще раз."));
+      setError(userMessage(err, t("Не вдалося. Спробуйте ще раз.")));
       setBusy(false);
     }
   }
@@ -74,32 +76,56 @@ export function AuthForm({
       <h1 className="text-[28px] font-bold leading-tight tracking-[-0.02em] sm:text-[32px]">{title}</h1>
       <div className="mt-2 text-[15px] text-muted">{description}</div>
       <form onSubmit={submit} noValidate className="mt-8 space-y-4">
-        {fields.map((f) => (
-          <Field key={f.name} label={f.label} hint={f.hint}>
-            <input
-              className="control"
-              name={f.name}
-              type={f.type ?? "text"}
-              autoComplete={f.autoComplete}
-              readOnly={f.readOnly}
-              required
-              aria-invalid={Boolean(invalid[f.name])}
-              aria-describedby={invalid[f.name] ? `${f.name}-error` : undefined}
-              value={values[f.name] ?? ""}
-              onChange={(e) => {
-                setValues((v) => ({ ...v, [f.name]: e.target.value }));
-                if (invalid[f.name]) setInvalid((m) => ({ ...m, [f.name]: "" }));
-              }}
-            />
-            {invalid[f.name] && (
-              <span id={`${f.name}-error`} className="mt-1.5 block text-xs font-bold text-bad">
-                {invalid[f.name]}
+        {fields.map((f) => {
+          const secret = f.type === "password";
+          const shown = secret && Boolean(visible[f.name]);
+          return (
+            <Field key={f.name} label={f.label} hint={f.hint}>
+              <span className="relative block">
+                <input
+                  className="control"
+                  style={secret ? { paddingRight: "2.75rem" } : undefined}
+                  aria-label={secret ? f.label : undefined}
+                  name={f.name}
+                  type={shown ? "text" : (f.type ?? "text")}
+                  autoCapitalize={secret ? "none" : undefined}
+                  autoCorrect={secret ? "off" : undefined}
+                  spellCheck={secret ? false : undefined}
+                  autoComplete={f.autoComplete}
+                  readOnly={f.readOnly}
+                  required
+                  aria-invalid={Boolean(invalid[f.name])}
+                  aria-describedby={invalid[f.name] ? `${f.name}-error` : undefined}
+                  value={values[f.name] ?? ""}
+                  onChange={(e) => {
+                    setValues((v) => ({ ...v, [f.name]: e.target.value }));
+                    if (invalid[f.name]) setInvalid((m) => ({ ...m, [f.name]: "" }));
+                  }}
+                />
+                {secret && (
+                  <button
+                    type="button"
+                    onMouseDown={(e) => e.preventDefault()}
+                    onClick={() => setVisible((v) => ({ ...v, [f.name]: !v[f.name] }))}
+                    aria-label={shown ? t("Сховати пароль") : t("Показати пароль")}
+                    aria-pressed={shown}
+                    title={shown ? t("Сховати пароль") : t("Показати пароль")}
+                    className="absolute inset-y-0 right-0 grid w-11 place-items-center rounded-r-[0.625rem] text-muted transition hover:text-ink"
+                  >
+                    {shown ? <EyeOff className="size-[18px]" /> : <Eye className="size-[18px]" />}
+                  </button>
+                )}
               </span>
-            )}
-          </Field>
-        ))}
+              {invalid[f.name] && (
+                <span id={`${f.name}-error`} className="mt-1.5 block text-xs font-bold text-bad">
+                  {invalid[f.name]}
+                </span>
+              )}
+            </Field>
+          );
+        })}
         {error && (
-          <Notice tone="bad" title="Помилка">
+          <Notice tone="bad" title={t("Помилка")}>
             {error}
           </Notice>
         )}

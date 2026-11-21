@@ -1,4 +1,5 @@
 import type { Tone } from "@/types/ui";
+import { t } from "@/lib/shared/i18n";
 
 export function ScoreRing({ score, tone, size = 84 }: { score: number; tone: Tone; size?: number }) {
   const radius = 27;
@@ -9,7 +10,7 @@ export function ScoreRing({ score, tone, size = 84 }: { score: number; tone: Ton
       className="relative shrink-0"
       style={{ width: size, height: size }}
       role="img"
-      aria-label={`Оцінка стану ${score} зі 100`}
+      aria-label={t("Оцінка стану {v0} зі 100", { v0: score })}
     >
       <svg viewBox="0 0 64 64" className="size-full -rotate-90">
         <circle cx="32" cy="32" r={radius} fill="none" stroke="var(--line)" strokeWidth="6" />
@@ -28,7 +29,7 @@ export function ScoreRing({ score, tone, size = 84 }: { score: number; tone: Ton
       <span className="absolute inset-0 grid place-items-center">
         <span className="text-center leading-none">
           <span className="block text-2xl font-semibold">{score}</span>
-          <span className="mt-0.5 block text-[10px] font-bold text-muted">зі 100</span>
+          <span className="mt-0.5 block text-[10px] font-bold text-muted">{t("зі 100")}</span>
         </span>
       </span>
     </div>

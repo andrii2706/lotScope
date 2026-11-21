@@ -70,9 +70,10 @@ export async function currentUser(): Promise<CurrentUser | null> {
     suspended: boolean;
     suspended_reason: string;
     expires_at: Date;
+    market: string | null;
   }>(
     `select u.id, u.email, u.name, u.role, u.company_id, c.name as company_name, u.team_id, t.name as team_name,
-            c.kind, c.suspended, c.suspended_reason, s.expires_at
+            c.kind, c.suspended, c.suspended_reason, s.expires_at, c.settings->>'market' as market
        from sessions s join users u on u.id = s.user_id join companies c on c.id = u.company_id
        left join teams t on t.id = u.team_id
       where s.token_hash = $1 and s.expires_at > now() and s.created_at + make_interval(secs => $2) > now() and u.active`,
@@ -95,6 +96,7 @@ export async function currentUser(): Promise<CurrentUser | null> {
     suspended: r.suspended && !isAdmin,
     suspendedReason: r.suspended_reason,
     sessionExpiresAt: r.expires_at.toISOString(),
+    market: r.market === "pl" ? "pl" : "ua",
   };
 }
 

@@ -37,6 +37,17 @@ export function useRates(): Rates | null {
 
 export function applyRates(settings: Settings, live: Rates | null): Settings {
   if (!settings.autoRates || !live) return settings;
+  if (settings.market === "pl") {
+    if (!live.usdPln || !live.eurPln) return settings;
+    return {
+      ...settings,
+      usdPln: Math.round(live.usdPln * 10000) / 10000,
+      eurPln: Math.round(live.eurPln * 10000) / 10000,
+      eurUsd: Math.round((live.eurPln / live.usdPln) * 1000) / 1000,
+      plnUsd: Math.round((1 / live.usdPln) * 10000) / 10000,
+    };
+  }
+  if (!live.usdUah || !live.eurUah) return settings;
   return {
     ...settings,
     usdUah: Math.round(live.usdUah * 100) / 100,

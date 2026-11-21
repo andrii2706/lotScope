@@ -5,10 +5,11 @@ import { ROLE_LABEL } from "@/lib/shared/roles";
 import { stamp } from "@/lib/shared/labels";
 import type { Role } from "@/types/auth";
 import type { AuditEntry } from "@/types/admin";
+import { t } from "@/lib/shared/i18n";
 
 
 export function AuditList({ entries, showCompany = false }: { entries: AuditEntry[]; showCompany?: boolean }) {
-  if (entries.length === 0) return <p className="p-5 text-sm text-muted">Подій ще немає.</p>;
+  if (entries.length === 0) return <p className="p-5 text-sm text-muted">{t("Подій ще немає.")}</p>;
   return (
     <ul>
       {entries.map((e) => (
@@ -16,11 +17,11 @@ export function AuditList({ entries, showCompany = false }: { entries: AuditEntr
           <span className="w-36 shrink-0 tabular-nums text-xs text-muted">{stamp(e.created_at)}</span>
           <span className="min-w-0 flex-1">
             <span className="font-bold">{ACTION_LABEL[e.action] ?? e.action}</span>
-            {e.target && <span className="text-muted"> · {e.target}</span>}
-            {e.detail && <span className="text-faint"> · {e.detail}</span>}
+            {e.target && <span className="text-muted"> · {t(e.target)}</span>}
+            {e.detail && <span className="text-faint"> · {t(e.detail)}</span>}
           </span>
           <span className="text-xs text-muted">
-            {e.actor || "система"}
+            {e.actor || t("система")}
             {e.role && ` · ${ROLE_LABEL[e.role as Role] ?? e.role}`}
             {showCompany && e.company_name ? ` · ${e.company_name}` : ""}
           </span>

@@ -14,7 +14,7 @@ import { HistoryMarket } from "@/components/report/HistoryMarket";
 import { PrintReport } from "@/components/report/PrintReport";
 import { ScoreRing } from "@/components/report/ScoreRing";
 import { Button, Notice } from "@/components/ui";
-import { calculate, usd } from "@/lib/shared/calc";
+import { calculate, currencySign, money, moneyRange, usd } from "@/lib/shared/calc";
 import { useCan, useMe } from "@/lib/client/me";
 import { ACTION, AIRBAG, CONFIDENCE, LEVEL, LEVEL_TONE, LIKELIHOOD, TONE_BG, TONE_TEXT, VERDICT, lotTitle } from "@/lib/shared/labels";
 import { RUN_TEXT, damageText, damagesText, engineText, lotDescription, mileageShort, mileageText, titleInfo } from "@/lib/shared/lotText";
@@ -25,6 +25,7 @@ import type { Tone } from "@/types/ui";
 import { VERDICT_ICON, ACTION_STYLE, LEVEL_DOTS } from "@/components/report/reportStyles";
 import { sameOverrides } from "@/lib/shared/overrides";
 import { Block, Kpi, Fact, ListBlock, EditField } from "@/components/report/ReportBlocks";
+import { t, localeOf, fmtNum } from "@/lib/shared/i18n";
 
 export default function ReportPage() {
   const { id } = useParams<{ id: string }>();
@@ -48,23 +49,22 @@ export default function ReportPage() {
 
   const report = reports.find((r) => r.id === id);
 
-  if (!hydrated) return <p className="text-sm text-muted">Завантажую звіт…</p>;
+  if (!hydrated) return <p className="text-sm text-muted">{t("Завантажую звіт…")}</p>;
   if (!report) {
     return (
       <div className="card mx-auto max-w-md p-8 text-center">
         <span className="mx-auto mb-4 grid size-12 place-items-center rounded-xl bg-panel2 text-muted">
           <FileSearch className="size-6" />
         </span>
-        <h1 className="text-xl font-semibold">Звіт не знайдено</h1>
+        <h1 className="text-xl font-semibold">{t("Звіт не знайдено")}</h1>
         <p className="mt-2 text-sm text-muted">
-          Незбережені звіти зникають після оновлення сторінки.
-          Також звіт могли видалити, або він належить іншому користувачу.
+          {t("Незбережені звіти зникають після оновлення сторінки. Також звіт могли видалити, або він належить іншому користувачу.")}
         </p>
         <Link
           href="/history"
           className="mt-5 inline-block text-sm font-bold text-accent-text hover:underline"
         >
-          Перейти до історії
+          {t("Перейти до історії")}
         </Link>
       </div>
     );
@@ -112,7 +112,7 @@ export default function ReportPage() {
       reportEvent();
     } catch (error) {
       console.error("[LotScope] pdf", error);
-      setPdfError("Не вдалося створити файл. Скористайтесь кнопкою «Друкувати» і виберіть «Зберегти як PDF».");
+      setPdfError(t("Не вдалося створити файл. Скористайтесь кнопкою «Друкувати» і виберіть «Зберегти як PDF»."));
     } finally {
       setPdfBusy(false);
     }
@@ -151,7 +151,7 @@ export default function ReportPage() {
 
   const auction = [
     lot.auction === "Other" ? "" : AUCTIONS[lot.auction]?.label ?? lot.auction,
-    lot.lotNumber && `лот ${lot.lotNumber}`,
+    lot.lotNumber && t("лот {v0}", { v0: lot.lotNumber }),
   ]
     .filter(Boolean)
     .join(" · ");
@@ -162,22 +162,22 @@ export default function ReportPage() {
   const description = lotDescription(lot);
 
   const facts = [
-    ["Пробіг", mileageText(lot)],
-    ["Двигун", engineText(lot)],
-    ["Аукціон", auction],
-    ["Пошкодження", damage],
-    ["Документ", title ? [titleValue, title.note].filter(Boolean).join(" — ") : ""],
-    ["Стан", RUN_TEXT[lot.runStatus]],
+    [t("Пробіг"), mileageText(lot)],
+    [t("Двигун"), engineText(lot)],
+    [t("Аукціон"), auction],
+    [t("Пошкодження"), damage],
+    [t("Документ"), title ? [titleValue, title.note].filter(Boolean).join(" — ") : ""],
+    [t("Стан"), RUN_TEXT[lot.runStatus]],
     ["VIN", lot.vin],
-    ["VIN на фото", analysis.vinOnPhoto ?? ""],
-    ["Пробіг на фото", analysis.odometerOnPhoto ?? ""],
+    [t("VIN на фото"), analysis.vinOnPhoto ?? ""],
+    [t("Пробіг на фото"), analysis.odometerOnPhoto ?? ""],
   ].filter(([, value]) => value);
-  const DESCRIBED = ["Пробіг", "Двигун", "Пошкодження", "Документ", "Стан"];
+  const DESCRIBED = [t("Пробіг"), t("Двигун"), t("Пошкодження"), t("Документ"), t("Стан")];
   const extraFacts = description.length > 0 ? facts.filter(([label]) => !DESCRIBED.includes(label)) : facts;
 
   const photoReadings = [
     analysis.vinOnPhoto ? `VIN ${analysis.vinOnPhoto}` : "",
-    analysis.odometerOnPhoto ? `пробіг ${analysis.odometerOnPhoto}` : "",
+    analysis.odometerOnPhoto ? t("пробіг {v0}", { v0: analysis.odometerOnPhoto }) : "",
   ].filter(Boolean);
 
   const savingsTone: Tone =
@@ -194,13 +194,15 @@ export default function ReportPage() {
   const auctionMeta = lot.auction === "Other" ? null : AUCTIONS[lot.auction];
   const created = new Date(report.createdAt);
   const chips = [mileageShort(lot), title?.label ?? "", damageText(lot.primaryDamage)].filter(Boolean);
-  const turnkey = `${Math.round(cost.totalMinUsd).toLocaleString("uk-UA")} – ${usd(cost.totalMaxUsd)}`;
+  const turnkey = moneyRange(cost.totalMinUsd, cost.totalMaxUsd, cost);
+  const sign = currencySign(cost);
+  const pl = cost.currency === "PLN";
 
   return (
     <>
       <div className="no-print">
         <Link href="/history" className="inline-flex items-center gap-1.5 text-sm font-medium text-muted transition hover:text-ink">
-          <ArrowLeft className="size-4" /> Усі звіти
+          <ArrowLeft className="size-4" /> {t("Усі звіти")}
         </Link>
         <header className="mb-6 mt-3 flex flex-wrap items-start justify-between gap-4">
           <div className="min-w-0">
@@ -211,14 +213,14 @@ export default function ReportPage() {
                   {auctionMeta.short}
                 </span>
               )}
-              {lot.lotNumber && <span className="rounded-md bg-panel2 px-2 py-0.5 font-mono text-xs text-ink">Лот {lot.lotNumber}</span>}
+              {lot.lotNumber && <span className="rounded-md bg-panel2 px-2 py-0.5 font-mono text-xs text-ink">{t("Лот")} {lot.lotNumber}</span>}
               {lot.vin && <span className="rounded-md bg-panel2 px-2 py-0.5 font-mono text-xs text-ink">{lot.vin}</span>}
               {chips.map((c) => (
                 <span key={c} className="rounded-md border border-line px-2 py-0.5">
                   {c}
                 </span>
               ))}
-              {!Number.isNaN(created.getTime()) && <span>{created.toLocaleDateString("uk-UA")}</span>}
+              {!Number.isNaN(created.getTime()) && <span>{created.toLocaleDateString(localeOf())}</span>}
             </div>
           </div>
           <div className="flex flex-wrap gap-2">
@@ -227,19 +229,19 @@ export default function ReportPage() {
                 variant="secondary"
                 onClick={startEditing}
                 disabled={editing}
-                title={editing ? "Спершу збережіть або скасуйте поточні зміни нижче" : "Змінити суми в розрахунку"}
+                title={editing ? t("Спершу збережіть або скасуйте поточні зміни нижче") : t("Змінити суми в розрахунку")}
               >
-                <Pencil className="size-4" /> Змінити суми
+                <Pencil className="size-4" /> {t("Змінити суми")}
               </Button>
             )}
             {canPdf && (
               <>
                 <Button variant="secondary" onClick={printReport}>
-                  <Printer className="size-4" /> Друкувати
+                  <Printer className="size-4" /> {t("Друкувати")}
                 </Button>
                 <Button onClick={() => void savePdf()} disabled={pdfBusy}>
                   {pdfBusy ? <LoaderCircle className="size-4 animate-spin" /> : <Download className="size-4" />}
-                  {pdfBusy ? "Готую PDF…" : "Завантажити PDF"}
+                  {pdfBusy ? t("Готую PDF…") : t("Завантажити PDF")}
                 </Button>
               </>
             )}
@@ -249,20 +251,18 @@ export default function ReportPage() {
 
         {report.saved === false && (
           <div className="mb-5">
-            <Notice tone="warn" title="Звіт не збережено">
+            <Notice tone="warn" title={t("Звіт не збережено")}>
               {canSave
-                ? "Не вдалося зберегти звіт. Він зникне після оновлення сторінки, тож за потреби завантажте PDF."
-                : "Ваша роль не дозволяє зберігати звіти. Після оновлення сторінки він зникне."}
+                ? t("Не вдалося зберегти звіт. Він зникне після оновлення сторінки, тож за потреби завантажте PDF.")
+                : t("Ваша роль не дозволяє зберігати звіти. Після оновлення сторінки він зникне.")}
             </Notice>
           </div>
         )}
 
         {report.demo && (
           <div className="mb-5">
-            <Notice tone="warn" title="Демо-звіт: це не аналіз ваших фото">
-              Аналіз фото на момент створення не був підключений, тому опис пошкоджень і вилка ремонту
-              нижче — заздалегідь підготовлений приклад. Розрахунок розмитнення
-              та ціни під ключ зроблено за введеними даними лота.
+            <Notice tone="warn" title={t("Демо-звіт: це не аналіз ваших фото")}>
+              {t("Аналіз фото на момент створення не був підключений, тому опис пошкоджень і вилка ремонту нижче — заздалегідь підготовлений приклад. Розрахунок розмитнення та ціни під ключ зроблено за введеними даними лота.")}
             </Notice>
           </div>
         )}
@@ -273,7 +273,7 @@ export default function ReportPage() {
           <div className="card flex min-w-0 flex-col gap-3 p-3">
             <div className="relative aspect-[4/3] overflow-hidden rounded-xl bg-panel2 lg:aspect-auto lg:min-h-80 lg:flex-1">
               {report.photos.length > 0 ? (
-                <img src={report.photos[activePhoto]} alt={`Фото ${activePhoto + 1}`} className="absolute inset-0 size-full object-cover" />
+                <img src={report.photos[activePhoto]} alt={t("Фото {v0}", { v0: activePhoto + 1 })} className="absolute inset-0 size-full object-cover" />
               ) : (
                 <div className="absolute inset-0 grid place-items-center text-faint">
                   <CarFront className="size-20" strokeWidth={1.2} />
@@ -282,8 +282,8 @@ export default function ReportPage() {
               {report.photos.length > 0 && (
                 <button
                   type="button"
-                  aria-label="Збільшити фото"
-                  title="Збільшити фото"
+                  aria-label={t("Збільшити фото")}
+                  title={t("Збільшити фото")}
                   onClick={() => setZoom(true)}
                   className="absolute bottom-3 right-3 z-10 grid size-9 place-items-center rounded-lg bg-scrim text-white backdrop-blur transition hover:bg-black/80"
                 >
@@ -305,7 +305,7 @@ export default function ReportPage() {
                       <button
                         type="button"
                         onClick={() => (more ? (setPhoto(5), setZoom(true)) : setPhoto(i))}
-                        aria-label={more ? `Усі фото (${report.photos.length})` : `Показати фото ${i + 1}`}
+                        aria-label={more ? t("Усі фото ({v0})", { v0: report.photos.length }) : t("Показати фото {v0}", { v0: i + 1 })}
                         aria-pressed={i === activePhoto}
                         className={`relative block aspect-[4/3] w-full overflow-hidden rounded-lg ring-2 transition ${
                           i === activePhoto ? "ring-accent-text" : "ring-transparent hover:opacity-90"
@@ -338,30 +338,30 @@ export default function ReportPage() {
             </div>
 
             <div className="mt-5 border-t border-line pt-5">
-              <p className="text-[13px] font-medium text-muted">Ціна під ключ</p>
+              <p className="text-[13px] font-medium text-muted">{t("Ціна під ключ")}</p>
               <p className="mt-1 text-[28px] font-bold leading-tight tracking-[-0.02em] sm:text-[34px]">{turnkey}</p>
               <p className="mt-1 text-[13px] text-muted">
-                {bid > 0 ? `при ставці ${usd(bid)} · з розмитненням і ремонтом` : "ставку не вказано, сума без вартості авто"}
+                {bid > 0 ? t("при ставці {v0} · з розмитненням і ремонтом", { v0: usd(bid) }) : t("ставку не вказано, сума без вартості авто")}
               </p>
             </div>
 
             <div className="mt-5 grid grid-cols-3 gap-2.5">
               <Kpi
-                label="Макс. ставка"
-                value={hasMarket ? (cost.maxBidUsd ? usd(cost.maxBidUsd) : "Недосяжно") : "—"}
-                note={hasMarket ? `вигода ${settings.targetSavingsPct} %` : "немає ринку"}
+                label={t("Макс. ставка")}
+                value={hasMarket ? (cost.maxBidUsd ? usd(cost.maxBidUsd) : t("Недосяжно")) : "—"}
+                note={hasMarket ? t("вигода {v0} %", { v0: settings.targetSavingsPct }) : t("немає ринку")}
                 action={!hasMarket && !editing && canEditAmounts ? startEditing : undefined}
               />
               <Kpi
-                label={hasMarket && cost.savingsUsd < 0 ? "Переплата" : "Вигода"}
-                value={hasMarket ? usd(Math.abs(cost.savingsUsd)) : "—"}
-                note={hasMarket ? `${Math.abs(cost.savingsPct).toFixed(0)} % від ринку` : "немає з чим порівняти"}
+                label={hasMarket && cost.savingsUsd < 0 ? t("Переплата") : t("Вигода")}
+                value={hasMarket ? money(Math.abs(cost.savingsUsd), cost) : "—"}
+                note={hasMarket ? t("{v0} % від ринку", { v0: Math.abs(cost.savingsPct).toFixed(0) }) : t("немає з чим порівняти")}
                 tone={hasMarket ? savingsTone : undefined}
               />
               <Kpi
-                label="Ринок в Україні"
-                value={hasMarket ? usd(cost.marketPriceUsd) : "—"}
-                note={hasMarket ? (lot.marketSource && live.marketPriceUsd === undefined ? "AUTO.RIA" : "вручну") : "не вказано"}
+                label={t("Ринок в Україні")}
+                value={hasMarket ? money(cost.marketPriceUsd, cost) : "—"}
+                note={hasMarket ? (lot.marketSource && live.marketPriceUsd === undefined ? "AUTO.RIA" : t("вручну")) : t("не вказано")}
               />
             </div>
 
@@ -376,19 +376,19 @@ export default function ReportPage() {
         <section className="mt-5 grid gap-3.5 md:grid-cols-3">
           <Fact
             icon={<Crosshair className="size-4" />}
-            label="Зона удару"
-            value={analysis.impactZone || "не визначено"}
+            label={t("Зона удару")}
+            value={analysis.impactZone || t("не визначено")}
           />
           <Fact
             icon={<ShieldCheck className="size-4" />}
-            label="Ризик для силової структури"
+            label={t("Ризик для силової структури")}
             value={LEVEL[analysis.structuralRisk]}
             tone={LEVEL_TONE[analysis.structuralRisk]}
             note={analysis.structuralRiskNote}
           />
           <Fact
             icon={<Wind className="size-4" />}
-            label="Подушки за фото"
+            label={t("Подушки за фото")}
             value={AIRBAG[analysis.airbagAssessment]}
             tone={
               analysis.airbagAssessment === "deployed"
@@ -402,7 +402,7 @@ export default function ReportPage() {
         </section>
 
         {(description.length > 0 || extraFacts.length > 0) && (
-          <Block title="Про авто">
+          <Block title={t("Про авто")}>
             <div className="card p-5 sm:p-6">
               {description.length > 0 && (
                 <div className="max-w-4xl space-y-1.5 text-[15px] leading-relaxed text-ink/90">
@@ -425,14 +425,14 @@ export default function ReportPage() {
           </Block>
         )}
 
-        <Block title="Коротко">
+        <Block title={t("Коротко")}>
           <div className="card p-5 sm:p-6">
             <p className="max-w-4xl text-[15px] leading-relaxed text-ink/90">
               {analysis.summary}
             </p>
             {photoReadings.length > 0 && (
               <p className="mt-3 text-sm text-muted">
-                Прочитано з фото: <span className="font-semibold text-ink">{photoReadings.join(", ")}</span>
+                {t("Прочитано з фото:")} <span className="font-semibold text-ink">{photoReadings.join(", ")}</span>
               </p>
             )}
             {analysis.photoNotes.length > 0 && (
@@ -442,7 +442,7 @@ export default function ReportPage() {
                     <button
                       type="button"
                       onClick={() => setPhoto(note.photo - 1)}
-                      aria-label={`Показати фото ${note.photo}`}
+                      aria-label={t("Показати фото {v0}", { v0: note.photo })}
                       className="mt-px grid h-6 min-w-6 shrink-0 place-items-center rounded-md bg-panel2 px-1.5 text-[11px] font-semibold ring-1 ring-line2 transition hover:bg-accent hover:text-accent-ink"
                     >
                       {note.photo}
@@ -459,7 +459,7 @@ export default function ReportPage() {
 
         <div className="grid items-start gap-x-5 lg:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)]">
           {analysis.damagedParts.length > 0 && (
-            <Block title="Пошкоджені деталі">
+            <Block title={t("Пошкоджені деталі")}>
               <ul className="card px-5 py-1.5 sm:px-6">
                 {analysis.damagedParts.map((part, i) => (
                   <li
@@ -482,7 +482,7 @@ export default function ReportPage() {
                       </span>
                       <span
                         className="flex items-center gap-1.5 text-xs font-semibold text-muted"
-                        title="Впевненість оцінки"
+                        title={t("Впевненість оцінки")}
                       >
                         <span aria-hidden className="flex gap-[3px]">
                           {[1, 2, 3].map((n) => (
@@ -495,21 +495,20 @@ export default function ReportPage() {
                         {CONFIDENCE[part.confidence]}
                       </span>
                       <span className="ml-auto whitespace-nowrap text-right text-[15px] font-semibold sm:ml-0">
-                        {Math.round(part.costMinUsd).toLocaleString("uk-UA")} –{" "}
-                        {usd(part.costMaxUsd)}
+                        {moneyRange(part.costMinUsd, part.costMaxUsd, cost)}
                       </span>
                     </div>
                   </li>
                 ))}
               </ul>
               <p className="mt-2 text-xs text-faint">
-                Крапки показують впевненість оцінки за фото.
+                {t("Крапки показують впевненість оцінки за фото.")}
               </p>
             </Block>
           )}
 
           {analysis.scenarios.length > 0 && (
-            <Block title="Сценарії ремонту">
+            <Block title={t("Сценарії ремонту")}>
               <ul className="card divide-y divide-line">
                 {analysis.scenarios.map((s, i) => {
                   const top = s.likelihood === "high";
@@ -533,7 +532,7 @@ export default function ReportPage() {
                           />
                         </div>
                         <span className="whitespace-nowrap text-sm font-semibold">
-                          {Math.round(s.repairMinUsd).toLocaleString("uk-UA")} – {usd(s.repairMaxUsd)}
+                          {moneyRange(s.repairMinUsd, s.repairMaxUsd, cost)}
                         </span>
                       </div>
                     </li>
@@ -556,19 +555,19 @@ export default function ReportPage() {
           }}
         />
 
-        <Block id="cost-summary" title="З чого складається ціна">
+        <Block id="cost-summary" title={t("З чого складається ціна")}>
           <div className="card p-5 sm:p-6">
             <div className="flex flex-wrap items-baseline justify-between gap-3">
-              <span className="text-sm font-medium text-muted">Разом під ключ</span>
+              <span className="text-sm font-medium text-muted">{t("Разом під ключ")}</span>
               <span className="whitespace-nowrap text-xl font-bold tracking-tight">
-                {Math.round(cost.totalMinUsd).toLocaleString("uk-UA")} – {usd(cost.totalMaxUsd)}
+                {turnkey}
               </span>
             </div>
             <dl className="mt-4 grid grid-cols-2 gap-3 border-t border-line pt-4 lg:grid-cols-4">
               {cost.groups.map((g) => (
                 <div key={g.title} className="rounded-xl bg-panel2 px-3.5 py-3">
                   <dt className="text-xs font-medium text-muted">{g.title}</dt>
-                  <dd className="mt-0.5 text-base font-semibold">{usd(g.subtotal)}</dd>
+                  <dd className="mt-0.5 text-base font-semibold">{money(g.subtotal, cost)}</dd>
                 </div>
               ))}
             </dl>
@@ -579,7 +578,7 @@ export default function ReportPage() {
                 aria-expanded={showTable}
                 className="mt-4 flex w-full items-center justify-center gap-1.5 rounded-[10px] border border-line2 py-2.5 text-sm font-semibold transition hover:bg-panel2"
               >
-                {showTable ? "Згорнути розрахунок" : "Показати всі статті"}
+                {showTable ? t("Згорнути розрахунок") : t("Показати всі статті")}
                 <ChevronDown className={`size-4 transition ${showTable ? "rotate-180" : ""}`} />
               </button>
             )}
@@ -588,7 +587,7 @@ export default function ReportPage() {
 
         {savedNote && (
           <div role="status" className="no-print mt-4 flex items-center gap-2 rounded-xl border border-good/30 bg-good-bg px-4 py-3 text-sm font-bold text-good">
-            <CircleCheck className="size-4.5" /> Зміни збережено. Розрахунок і PDF оновлено.
+            <CircleCheck className="size-4.5" /> {t("Зміни збережено. Розрахунок і PDF оновлено.")}
           </div>
         )}
 
@@ -597,16 +596,15 @@ export default function ReportPage() {
             {editing && (
               <div className="mb-4 rounded-xl border border-accent-text/30 bg-accent-text/[0.06] p-4">
                 <p className="mb-1 flex items-center gap-2 text-sm font-semibold">
-                  <Pencil className="size-4 text-accent-text" /> Редагування сум
+                  <Pencil className="size-4 text-accent-text" /> {t("Редагування сум")}
                 </p>
                 <p className="mb-3 text-xs text-muted">
-                  Змініть значення нижче: підсумок угорі перераховується одразу, але в звіт зміни потраплять
-                  лише після кнопки «Зберегти зміни». Суми в таблиці теж можна виправити.
+                  {t("Змініть значення нижче: підсумок угорі перераховується одразу, але в звіт зміни потраплять лише після кнопки «Зберегти зміни». Суми в таблиці теж можна виправити.")}
                 </p>
                 <div className="grid gap-3 sm:grid-cols-3">
-                  <EditField label="Ремонт від, $" value={cost.repairMinUsd} onChange={(v) => setOverride("repairMinUsd", v)} />
-                  <EditField label="Ремонт до, $" value={cost.repairMaxUsd} onChange={(v) => setOverride("repairMaxUsd", v)} />
-                  <EditField label="Ринок в Україні, $" value={cost.marketPriceUsd} onChange={(v) => setOverride("marketPriceUsd", v)} />
+                  <EditField label={`${t("Ремонт від")}, ${sign}`} value={Math.round(cost.repairMinUsd * cost.rate)} onChange={(v) => setOverride("repairMinUsd", v / cost.rate)} />
+                  <EditField label={`${t("Ремонт до")}, ${sign}`} value={Math.round(cost.repairMaxUsd * cost.rate)} onChange={(v) => setOverride("repairMaxUsd", v / cost.rate)} />
+                  <EditField label={`${t("Ринок в Україні")}, ${sign}`} value={Math.round(cost.marketPriceUsd * cost.rate)} onChange={(v) => (pl ? setOverride("marketPricePln", v) : setOverride("marketPriceUsd", v))} />
                 </div>
               </div>
             )}
@@ -614,27 +612,28 @@ export default function ReportPage() {
               <CostTable cost={cost} editing={editing} overrides={live} onOverride={setOverride} />
             </div>
             <p className="mt-2.5 text-xs leading-relaxed text-faint">
-              Митна вартість {usd(cost.customsValueUsd)}. Курси{settings.autoRates ? " НБУ" : ""}: 1 € = {settings.eurUsd} $, 1 $ = {settings.usdUah} грн.
-              Збір аукціону та логістика — оцінка за тарифами компанії.
-              {lot.marketSource && live.marketPriceUsd === undefined ? ` Ринкова ціна: ${lot.marketSource}.` : ""}
+              {pl
+                ? `Wartość celna ${money(cost.customsValueUsd, cost)}. Kurs${settings.autoRates ? " NBP" : ""}: 1 $ = ${fmtNum(settings.usdPln)} zł, 1 € = ${fmtNum(settings.eurPln)} zł. Opłaty aukcji i logistyka — według stawek firmy. Stawki cła i akcyzy: wg przepisów z 2026 r., sprawdź przed licytacją.`
+                : <>{t("Митна вартість")} {usd(cost.customsValueUsd)}{t(". Курси")}{settings.autoRates ? t(" НБУ") : ""}: 1 € = {settings.eurUsd} $, 1 $ = {settings.usdUah} {t("грн. Збір аукціону та логістика — оцінка за тарифами компанії.")}</>}
+              {lot.marketSource && live.marketPriceUsd === undefined ? t(" Ринкова ціна: {v0}.", { v0: lot.marketSource }) : ""}
             </p>
             {editing && (
               <div className="no-print sticky bottom-3 z-20 mt-4 flex flex-wrap items-center gap-3 rounded-xl border border-line2 bg-surface/95 p-3 shadow-[var(--shadow-card)] backdrop-blur">
                 <span className={`mr-auto text-sm font-bold ${dirty ? "text-warn" : "text-muted"}`}>
-                  {dirty ? "Є незбережені зміни" : "Змін поки немає"}
+                  {dirty ? t("Є незбережені зміни") : t("Змін поки немає")}
                 </span>
                 <Button variant="secondary" onClick={cancelEditing}>
-                  Скасувати
+                  {t("Скасувати")}
                 </Button>
                 <Button onClick={saveEditing} disabled={!dirty}>
-                  <CircleCheck className="size-4.5" /> Зберегти зміни
+                  <CircleCheck className="size-4.5" /> {t("Зберегти зміни")}
                 </Button>
               </div>
             )}
           </section>
         )}
 
-        <Block title="Історія та ринок">
+        <Block title={t("Історія та ринок")}>
           <HistoryMarket
             analysis={analysis}
             comparables={report.comparables}
@@ -648,39 +647,36 @@ export default function ReportPage() {
         <div className="mt-8 grid gap-4 md:grid-cols-2">
           <ListBlock
             icon={<TriangleAlert className="size-4" />}
-            title="Ризики"
+            title={t("Ризики")}
             items={analysis.redFlags}
             tone="bad"
-            empty="Явних ризиків на фото не видно."
+            empty={t("Явних ризиків на фото не видно.")}
           />
           <ListBlock
             icon={<ThumbsUp className="size-4" />}
-            title="Що на користь лота"
+            title={t("Що на користь лота")}
             items={analysis.positives}
             tone="good"
-            empty="Не виявлено."
+            empty={t("Не виявлено.")}
           />
           <ListBlock
             icon={<Camera className="size-4" />}
-            title="Яких фото бракує"
+            title={t("Яких фото бракує")}
             items={analysis.missingViews}
             tone="warn"
-            empty="Фото достатньо."
+            empty={t("Фото достатньо.")}
           />
           <ListBlock
             icon={<ListChecks className="size-4" />}
-            title="Перевірити перед ставкою"
+            title={t("Перевірити перед ставкою")}
             items={analysis.inspectionChecklist}
             empty="—"
           />
         </div>
 
         <p className="mt-8 max-w-4xl text-xs leading-relaxed text-faint">
-          Оцінку пошкоджень зроблено штучним інтелектом за фото з аукціону. Вона
-          не замінює огляд авто на майданчику та перевірку історії за VIN:
-          приховані пошкодження на фото не видно. Суми є попередніми і можуть
-          змінитися після торгів та фактичного ремонту.
-          {!report.demo && <span> Модель: {report.model}.</span>}
+          {t("Оцінку пошкоджень зроблено штучним інтелектом за фото з аукціону. Вона не замінює огляд авто на майданчику та перевірку історії за VIN: приховані пошкодження на фото не видно. Суми є попередніми і можуть змінитися після торгів та фактичного ремонту.")}
+          {!report.demo && <span> {t("Модель:")} {report.model}.</span>}
         </p>
       </div>
 

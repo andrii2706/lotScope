@@ -15,6 +15,7 @@ import { DEFAULT_SEARCH_FILTERS } from "@/config/search";
 import { auctionTime, analyzeHref } from "@/lib/shared/lots";
 import { RunBadge } from "@/components/search/RunBadge";
 import { damageText, mileageText, titleText } from "@/lib/shared/lotText";
+import { t, localeOf } from "@/lib/shared/i18n";
 
 export default function SearchPage() {
   const [filters, setFilters] = useState<SearchFilters>(DEFAULT_SEARCH_FILTERS);
@@ -47,13 +48,13 @@ export default function SearchPage() {
         body: JSON.stringify({ filters: last.current.filters, page, loose: last.current.loose }),
       });
       const data = (await res.json().catch(() => null)) as (SearchResponse & { error?: string }) | null;
-      if (!res.ok || !data || data.error) throw new Error(responseMessage("/api/search", res.status, data, "Не вдалося виконати пошук."));
+      if (!res.ok || !data || data.error) throw new Error(responseMessage("/api/search", res.status, data, t("Не вдалося виконати пошук.")));
       if (page === 1) last.current.loose = Boolean(data.loose);
       setResult((prev) => ({ ...data, comparables: page === 1 ? data.comparables : (prev?.comparables ?? null) }));
       setSearchedAt(Date.now());
       if (page > 1) window.scrollTo({ top: 0, behavior: "smooth" });
     } catch (err) {
-      setError(userMessage(err, "Не вдалося виконати пошук."));
+      setError(userMessage(err, t("Не вдалося виконати пошук.")));
     } finally {
       setBusy(false);
     }
@@ -70,45 +71,45 @@ export default function SearchPage() {
       <PageHeader
         eyebrow={
           <>
-            <span className="size-1.5 rounded-full bg-accent" /> Copart, IAAI, Copart Canada, Finland, Emirates · активні торги
+            <span className="size-1.5 rounded-full bg-accent" /> {t("Copart, IAAI, Copart Canada, Finland, Emirates · активні торги")}
           </>
         }
-        title="Пошук лотів"
-        description="Задайте авто, яке шукає клієнт. Лоти з аукціонів США, Канади, Фінляндії та ОАЕ в одному списку, поруч із ціною продажів схожих авто. Будь-який лот відправляється на ШІ-аналіз одним кліком."
+        title={t("Пошук лотів")}
+        description={t("Задайте авто, яке шукає клієнт. Лоти з аукціонів США, Канади, Фінляндії та ОАЕ в одному списку, поруч із ціною продажів схожих авто. Будь-який лот відправляється на ШІ-аналіз одним кліком.")}
       />
 
       <form onSubmit={search} noValidate className="card rise p-5 sm:p-6">
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-6">
-          <Field label="Марка" required>
+          <Field label={t("Марка")} required>
             <Combobox options={MAKES} placeholder="BMW" value={filters.make} onChange={(v) => set("make", v)} />
           </Field>
-          <Field label="Модель" className="lg:col-span-1">
+          <Field label={t("Модель")} className="lg:col-span-1">
             <Combobox options={modelsFor(filters.make)} placeholder="3 Series" value={filters.model} onChange={(v) => set("model", v)} />
           </Field>
-          <Field label="Рік від">
+          <Field label={t("Рік від")}>
             <NumberInput value={filters.yearFrom} onChange={(v) => set("yearFrom", Math.round(v))} placeholder="2018" />
           </Field>
-          <Field label="Рік до">
+          <Field label={t("Рік до")}>
             <NumberInput value={filters.yearTo} onChange={(v) => set("yearTo", Math.round(v))} placeholder="2020" />
           </Field>
-          <Field label="Пробіг до">
+          <Field label={t("Пробіг до")}>
             <NumberInput value={filters.maxMiles} onChange={(v) => set("maxMiles", v)} suffix="mi" placeholder="60000" />
           </Field>
-          <Field label="Ставка до">
+          <Field label={t("Ставка до")}>
             <NumberInput value={filters.maxBidUsd} onChange={(v) => set("maxBidUsd", v)} suffix="$" placeholder="12000" />
           </Field>
         </div>
 
         <div className="mt-4 flex flex-wrap items-end gap-x-6 gap-y-4 border-t border-line pt-4">
-          <Field label="Аукціон" className="w-full sm:w-64">
+          <Field label={t("Аукціон")} className="w-full sm:w-64">
             <Select<SearchFilters["auction"]>
               value={filters.auction}
               onChange={(v) => set("auction", v)}
-              options={[{ value: "all", label: "Усі аукціони" }, ...SEARCHABLE.map((a) => ({ value: a, label: AUCTIONS[a].label }))]}
+              options={[{ value: "all", label: t("Усі аукціони") }, ...SEARCHABLE.map((a) => ({ value: a, label: AUCTIONS[a].label }))]}
             />
           </Field>
           <div className="min-w-0 flex-1">
-            <span className="mb-1.5 block text-[13px] font-medium text-ink">Пошкодження</span>
+            <span className="mb-1.5 block text-[13px] font-medium text-ink">{t("Пошкодження")}</span>
             <div className="flex flex-wrap gap-1.5">
               {DAMAGE_FILTERS.map((d) => {
                 const on = filters.damages.includes(d);
@@ -134,26 +135,26 @@ export default function SearchPage() {
         <div className="mt-4 flex flex-wrap items-center gap-x-6 gap-y-3">
           <label className="flex items-center gap-2 text-sm font-medium">
             <input type="checkbox" className="size-4.5 accent-[var(--accent)]" checked={filters.excludeFlood} onChange={(e) => set("excludeFlood", e.target.checked)} />
-            Без Water/Flood
+            {t("Без Water/Flood")}
           </label>
           <label className="flex items-center gap-2 text-sm font-medium">
             <input type="checkbox" className="size-4.5 accent-[var(--accent)]" checked={filters.excludeDeployed} onChange={(e) => set("excludeDeployed", e.target.checked)} />
-            Без спрацьованих подушок
+            {t("Без спрацьованих подушок")}
           </label>
           <label className="flex items-center gap-2 text-sm font-medium">
             <input type="checkbox" className="size-4.5 accent-[var(--accent)]" checked={filters.runDriveOnly} onChange={(e) => set("runDriveOnly", e.target.checked)} />
-            Лише Run &amp; Drive
+            {t("Лише Run & Drive")}
           </label>
           <Button type="submit" className="ml-auto w-full sm:w-auto" disabled={busy || !filters.make.trim()}>
             {busy ? <LoaderCircle className="size-4.5 animate-spin" /> : <Search className="size-4.5" />}
-            {busy ? "Шукаю…" : "Шукати лоти"}
+            {busy ? t("Шукаю…") : t("Шукати лоти")}
           </Button>
         </div>
       </form>
 
       {error && (
         <div className="mt-5">
-          <Notice tone="bad" title="Пошук не виконано">
+          <Notice tone="bad" title={t("Пошук не виконано")}>
             {error}
           </Notice>
         </div>
@@ -161,8 +162,8 @@ export default function SearchPage() {
 
       {result && !result.configured && (
         <div className="mt-5 space-y-3">
-          <Notice tone="warn" title="Список лотів зараз недоступний">
-            Відкрийте пошук на сайтах аукціонів за посиланнями нижче.
+          <Notice tone="warn" title={t("Список лотів зараз недоступний")}>
+            {t("Відкрийте пошук на сайтах аукціонів за посиланнями нижче.")}
           </Notice>
           <div className="flex flex-wrap gap-2">
             {result.links.map((l) => (
@@ -176,34 +177,34 @@ export default function SearchPage() {
         <>
           <section className="mt-5 grid grid-cols-2 gap-3 lg:grid-cols-3">
             <div className="card p-4 sm:p-5">
-              <p className="text-[13px] font-medium text-muted">Знайдено</p>
+              <p className="text-[13px] font-medium text-muted">{t("Знайдено")}</p>
               <p className="mt-1 text-2xl font-medium tracking-[-0.02em] sm:text-[28px]">
-                {result.total} <span className="text-sm font-medium text-muted">лотів на сторінці</span>
+                {result.total} <span className="text-sm font-medium text-muted">{t("лотів на сторінці")}</span>
               </p>
             </div>
             <div className="card p-4 sm:p-5">
-              <p className="text-[13px] font-medium text-muted">Торги за добу</p>
+              <p className="text-[13px] font-medium text-muted">{t("Торги за добу")}</p>
               <p className="mt-1 text-2xl font-medium tracking-[-0.02em] sm:text-[28px]">{today}</p>
             </div>
             <div className="card col-span-2 p-4 sm:p-5 lg:col-span-1">
-              <p className="text-[13px] font-medium text-muted">Медіана продажів схожих</p>
+              <p className="text-[13px] font-medium text-muted">{t("Медіана продажів схожих")}</p>
               {result.comparables ? (
                 <>
                   <p className="mt-1 text-2xl font-medium tracking-[-0.02em] sm:text-[28px]">{usd(result.comparables.medianUsd)}</p>
                   <p className="text-xs text-faint">
-                    середина {usd(result.comparables.p25Usd)}–{usd(result.comparables.p75Usd)} · продажів: {result.comparables.count}
+                    {t("середина")} {usd(result.comparables.p25Usd)}–{usd(result.comparables.p75Usd)} {t("· продажів:")} {result.comparables.count}
                   </p>
                 </>
               ) : (
-                <p className="mt-2 text-sm text-muted">немає даних про продажі</p>
+                <p className="mt-2 text-sm text-muted">{t("немає даних про продажі")}</p>
               )}
             </div>
           </section>
 
           {result.message && (
             <div className="mt-5">
-              <Notice tone="warn" title="Нічого не знайдено">
-                {result.message}
+              <Notice tone="warn" title={t("Нічого не знайдено")}>
+                {t(result.message)}
               </Notice>
             </div>
           )}
@@ -214,13 +215,13 @@ export default function SearchPage() {
                 <table className="w-full min-w-[900px] text-sm">
                   <thead>
                     <tr className="border-b border-line text-left text-xs text-muted">
-                      <th className="px-4 py-2.5 font-medium">Лот</th>
-                      <th className="px-3 py-2.5 font-medium">Пошкодження</th>
-                      <th className="px-3 py-2.5 font-medium">Пробіг · локація</th>
-                      <th className="px-3 py-2.5 font-medium">Торги</th>
-                      <th className="px-3 py-2.5 text-right font-medium">Ставка</th>
+                      <th className="px-4 py-2.5 font-medium">{t("Лот")}</th>
+                      <th className="px-3 py-2.5 font-medium">{t("Пошкодження")}</th>
+                      <th className="px-3 py-2.5 font-medium">{t("Пробіг · локація")}</th>
+                      <th className="px-3 py-2.5 font-medium">{t("Торги")}</th>
+                      <th className="px-3 py-2.5 text-right font-medium">{t("Ставка")}</th>
                       <th className="px-4 py-2.5">
-                        <span className="sr-only">Дії</span>
+                        <span className="sr-only">{t("Дії")}</span>
                       </th>
                     </tr>
                   </thead>
@@ -245,14 +246,14 @@ export default function SearchPage() {
                                 </span>
                               </div>
                               <div className="min-w-0">
-                                <p className="truncate font-semibold">{title || "Авто"}</p>
+                                <p className="truncate font-semibold">{title || t("Авто")}</p>
                                 <p className="truncate font-mono text-xs text-muted">
-                                  {lot.lotNumber && `Лот ${lot.lotNumber}`}
+                                  {lot.lotNumber && t("Лот {v0}", { v0: lot.lotNumber })}
                                   {lot.vin && ` · ${lot.vin}`}
                                 </p>
                                 {lot.url && (
                                   <a href={lot.url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-xs font-medium text-accent-text hover:underline">
-                                    на {AUCTIONS[lot.auction].short} <ExternalLink className="size-3" />
+                                    {t("на")} {AUCTIONS[lot.auction].short} <ExternalLink className="size-3" />
                                   </a>
                                 )}
                               </div>
@@ -279,7 +280,7 @@ export default function SearchPage() {
                           <td className="whitespace-nowrap px-3 py-3 text-right text-base font-semibold tabular-nums">{lot.currentBidUsd ? usd(lot.currentBidUsd) : "—"}</td>
                           <td className="px-4 py-3 text-right">
                             <Link href={analyzeHref(lot)} className="inline-flex h-9 items-center justify-center gap-1.5 rounded-[10px] bg-accent px-3.5 text-sm font-semibold text-accent-ink transition hover:brightness-110">
-                              Аналіз <ArrowRight className="size-4" />
+                              {t("Аналіз")} <ArrowRight className="size-4" />
                             </Link>
                           </td>
                         </tr>
@@ -292,16 +293,16 @@ export default function SearchPage() {
           )}
 
           {(result.totalPages ?? 1) > 1 && (
-            <nav aria-label="Сторінки" className="mt-5 flex flex-wrap items-center justify-center gap-3">
+            <nav aria-label={t("Сторінки")} className="mt-5 flex flex-wrap items-center justify-center gap-3">
               <Button type="button" variant="secondary" disabled={busy || (result.page ?? 1) <= 1} onClick={() => load((result.page ?? 1) - 1)}>
-                <ChevronLeft className="size-4.5" /> Назад
+                <ChevronLeft className="size-4.5" /> {t("Назад")}
               </Button>
               <span className="text-sm font-medium text-muted">
-                Сторінка {result.page ?? 1} з {result.totalPages}
-                {result.providerTotal ? ` · усього ${result.providerTotal.toLocaleString("uk-UA")}` : ""}
+                {t("Сторінка")} {result.page ?? 1} {t("з")} {result.totalPages}
+                {result.providerTotal ? t(" · усього {v0}", { v0: result.providerTotal.toLocaleString(localeOf()) }) : ""}
               </span>
               <Button type="button" variant="secondary" disabled={busy || (result.page ?? 1) >= (result.totalPages ?? 1)} onClick={() => load((result.page ?? 1) + 1)}>
-                Далі <ChevronRight className="size-4.5" />
+                {t("Далі")} <ChevronRight className="size-4.5" />
               </Button>
             </nav>
           )}
@@ -310,7 +311,7 @@ export default function SearchPage() {
 
       {!result && !error && (
         <p className="mt-6 text-sm text-muted">
-          Почніть з марки. Решта фільтрів за бажанням: що менше обмежень, то більше лотів.
+          {t("Почніть з марки. Решта фільтрів за бажанням: що менше обмежень, то більше лотів.")}
         </p>
       )}
     </div>

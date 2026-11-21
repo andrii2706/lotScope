@@ -2,6 +2,7 @@
 
 import { ExternalLink, FileText, ImageIcon, TriangleAlert } from "lucide-react";
 import type { HistoryDoc } from "@/types/report";
+import { t } from "@/lib/shared/i18n";
 
 function openLocal(url: string) {
   const comma = url.indexOf(",");
@@ -21,7 +22,7 @@ export function HistoryDocs({ docs, names }: { docs?: HistoryDoc[]; names?: stri
   const cls = "inline-flex items-center gap-1.5 text-sm font-bold text-accent-text hover:underline";
   return (
     <div className="no-print mt-4 border-t border-line pt-4">
-      <p className="mb-2 text-[13px] font-medium text-muted">Додані звіти історії</p>
+      <p className="mb-2 text-[13px] font-medium text-muted">{t("Додані звіти історії")}</p>
       <ul className="space-y-1.5">
         {docs.map((d) => {
           const Icon = d.mediaType === "application/pdf" ? FileText : ImageIcon;
@@ -49,7 +50,7 @@ export function HistoryDocs({ docs, names }: { docs?: HistoryDoc[]; names?: stri
         {missing.map((n) => (
           <li key={n} className="flex items-center gap-1.5 text-sm text-warn">
             <TriangleAlert className="size-4 shrink-0" />
-            <span className="truncate">{n}: файл не вдалося зберегти, ШІ його врахував</span>
+            <span className="truncate">{n}{t(": файл не вдалося зберегти, ШІ його врахував")}</span>
           </li>
         ))}
       </ul>

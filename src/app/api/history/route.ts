@@ -4,6 +4,7 @@ import { requireUser } from "@/lib/server/auth";
 import { fail } from "@/lib/server/http";
 import { cleanVin } from "@/lib/shared/vin";
 import { historyLinks } from "@/lib/shared/historySites";
+import { langOf, withLang } from "@/lib/shared/i18n";
 import { mapAuctionHistory, mapVinAudit } from "@/lib/shared/vinhistory";
 import { route } from "@/lib/server/route";
 import { FEATURES } from "@/config/features";
@@ -56,7 +57,7 @@ async function handlePOST(request: Request) {
 
   const auction = FEATURES.vinHistoryAuto && auctionConfigured();
   const nmvtis = FEATURES.vinHistoryAuto && vinAuditConfigured();
-  const base: VinHistoryResponse = { configured: auction || nmvtis, history: null, links: historyLinks(vin) };
+  const base: VinHistoryResponse = { configured: auction || nmvtis, history: null, links: withLang(langOf(user.market), () => historyLinks(vin)) };
   if (!base.configured) return Response.json(base);
   await audit(user, "unlock", `VIN ${vin}`, "історія");
 
